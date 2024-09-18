@@ -1,0 +1,140 @@
+import argparse
+import os
+from distributed_training import DecentralizedTraining
+import subprocess
+import json
+
+
+# "task": "ImageNet",
+# "model_name": "ResNet_EvorNorm18",
+# "task": "ImageNet",
+# "model_name": "ResNet_EvoNorm18",
+# "task": "Cifar",
+# "model_name": "VGG-11",
+
+def load_graph_as_dict(config_file):
+    # Load the configuration from the JSON file
+    with open(config_file, 'r') as f:
+        config_data = json.load(f)
+
+    # Create an empty adjacency dictionary
+    adjacency_dict = {i: [] for i in range(config_data['num_nodes'])}
+
+    # Populate the adjacency dictionary
+    for edge in config_data['edges']:
+        node1, node2 = edge
+        adjacency_dict[node1].append(node2)
+        adjacency_dict[node2].append(node1)
+
+    return adjacency_dict, config_data.get('top_nodes', []), config_data.get('bottom_nodes', [])
+
+def send_log_to_remote_server(log_file_path, remote_user, remote_address, remote_directory):
+    remote_path = f"{remote_user}@{remote_address}:{remote_directory}"
+    command = ["scp", log_file_path, remote_path]
+    subprocess.run(command, check=True)
+
+
+# Environment variables set by torch.distributed.launch
+LOCAL_RANK = int(os.environ['LOCAL_RANK'])
+WORLD_SIZE = int(os.environ['WORLD_SIZE'])
+WORLD_RANK = int(os.environ['RANK'])
+# # Environment variables set by MPI
+# LOCAL_RANK = int(os.environ['OMPI_COMM_WORLD_LOCAL_RANK'])
+# WORLD_SIZE = int(os.environ['OMPI_COMM_WORLD_SIZE'])
+# WORLD_RANK = int(os.environ['OMPI_COMM_WORLD_RANK'])
+
+MASTER_ADDR = os.environ['MASTER_ADDR']
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tau', type=int, default=5, help='Number of SGD steps per node')
+    parser.add_argument('--train_time', type=int, default=5, help='Time in minutes to run')
+    parser.add_argument('--ports', type=int, nargs='+', default=[29500, 29501], help='List of ports for the groups')
+    parser.add_argument('--group_names', type=str, nargs='+', default=['group1', 'group2'], help='List of group names')
+    parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for asynchronous gossip')
+    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general'], required=True,
+                        help='Algorithm to run')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
+    parser.add_argument('--task', type=str, choices=['Cifar', 'Cifar3'], default="Cifar", help='Task name')
+    parser.add_argument('--model_name', type=str, default="ResNet20", help='Model name')
+    parser.add_argument('--data_split_method', type=str, choices=['random', 'dirichlet'], default="dirichlet", help='Data split method')
+    parser.add_argument('--non_iid_alpha', type=float, default=1.0, help='Non-IID alpha value')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size per worker')
+    parser.add_argument('--base_optimizer', type=str, default="SGD", help='Base optimizer')
+    parser.add_argument('--lr_warmup_time', type=int, default=2 , help='Learning rate warmup time in minutes')
+    parser.add_argument('--momentum', type=float, default=0.9, help='Momentum')
+    parser.add_argument('--weight_decay', type=float, default=0.0001, help='Weight decay')
+    parser.add_argument('--evaluate_interval', type=int, default=10, help='Evaluation interval in seconds')
+    parser.add_argument('--eval_gpu', type=int, default=0, help='GPU to use for evaluation')
+    parser.add_argument('--train_eval_frac', type=float, default=.5,
+                        help='Fraction of data to use for training and evaluation')
+
+    args = parser.parse_args()
+
+    rw_starting_ranks = list(range(len(args.ports)))
+    size = WORLD_SIZE
+    master_address = MASTER_ADDR
+    local_rank = LOCAL_RANK
+    rank = WORLD_RANK
+    specific_keys = ['learning_rate', 'algorithm', 'task', 'model_name', 'data_split_method', 'non_iid_alpha','base_optimizer']  # Replace these with your specific keys
+    log_name = f'full_dup_size={size}_rank={rank}_rw={len(args.group_names)}' + '_'.join(
+        [f'{key}={value}' for key, value in vars(args).items() if key in specific_keys])
+    probability = .3
+    if args.algorithm == 'async_gossip':
+        output_file = f'./configs/bipartite_graph_{size}_nodes_{probability}_prob.json'
+    else:
+        output_file = f'./configs/erdos_renyi_graph_{size}_nodes_{probability}_prob.json'
+    neighbors, top_nodes, bottom_nodes = load_graph_as_dict(output_file)
+    # neighbors = {
+    #     0: [1, ],
+    #     1: [0, ],
+    # }
+
+    config = {
+        "seed": args.seed,
+        "task": args.task,
+        "model_name": args.model_name,
+        "data_split_method": args.data_split_method,
+        "non_iid_alpha": args.non_iid_alpha,
+        "batch_size": args.batch_size,
+        "base_optimizer": args.base_optimizer,
+        "learning_rate": args.learning_rate,
+        "lr_warmup_time": args.lr_warmup_time,
+        "lr_schedule_milestones": [(args.train_time*60*.75, 0.1), (args.train_time*60*.9, 0.1)],
+        "momentum": args.momentum,
+        "weight_decay": args.weight_decay
+    }
+
+
+    training = DecentralizedTraining(
+        size=size,
+        local_rank = local_rank,
+        tau=args.tau,
+        train_time=args.train_time,
+        neighbors=neighbors,
+        top_nodes=top_nodes,
+        rw_starting_ranks=rw_starting_ranks,
+        master_address=master_address,
+        ports=args.ports,
+        group_names=args.group_names,
+        algorithm=args.algorithm,
+        config=config,
+        evaluate_interval=args.evaluate_interval,# seconds
+        eval_gpu=args.eval_gpu,
+        train_eval_frac=args.train_eval_frac,
+        log_name = log_name,
+    )
+    training.run(rank)
+    # Send log file to remote server
+    log_file_path = f'./log/{log_name}'
+    # send_log_to_remote_server(log_file_path, 'exouser', master_address, '~/rw_implement/log')
+
+    # mp.set_start_method('spawn')
+    # processes = []
+    # for rank in range(size):
+    #     p = mp.Process(target=training.run, args=(rank,))
+    #     p.start()
+    #     processes.append(p)
+    #
+    # for p in processes:
+    #     p.join()

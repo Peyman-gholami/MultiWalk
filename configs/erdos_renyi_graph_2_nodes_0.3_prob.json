@@ -1,0 +1,10 @@
+{
+    "num_nodes": 2,
+    "probability": 0.3,
+    "edges": [
+        [
+            0,
+            1
+        ]
+    ]
+}

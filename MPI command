@@ -1,0 +1,16 @@
+
+# export NCCL_DEBUG=INFO
+# export NCCL_IB_PCI_RELAXED_ORDERING=1
+# export NCCL_SOCKET_IFNAME=eth0
+
+# export NCCL_SOCKET_IFNAME=eth0
+
+mpirun -np 2 \
+--hostfile hostfile \
+-x MASTER_ADDR=149.165.154.253 \
+-x NCCL_SOCKET_IFNAME=enp1s0 \
+-x NCCL_IB_PCI_RELAXED_ORDERING=1 \
+-x PATH \
+-bind-to none -map-by slot \
+-mca pml ob1 -mca btl ^openib \
+python3 main.py  --tau 5 --train_time 2 --ports 29500 29501 --group_names group1 group2 --learning_rate 0.01 --algorithm random_walk --seed 42 --task Cifar --model_name ResNet20 --data_split_method dirichlet --non_iid_alpha 1.0 --batch_size 32 --base_optimizer SGD --lr_warmup_time 2 --momentum 0.9 --weight_decay 0.0001 --evaluate_interval 10 --eval_gpu 0 --train_eval_frac 0.5
