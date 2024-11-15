@@ -47,6 +47,7 @@ MASTER_ADDR = os.environ['MASTER_ADDR']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--graph', type=str, choices=['erdos_renyi', 'cycle', 'complete'], default='erdos_renyi', help='Graph topology')
     parser.add_argument('--tau', type=int, default=5, help='Number of SGD steps per node')
     parser.add_argument('--train_time', type=int, default=5, help='Time in minutes to run')
     parser.add_argument('--ports', type=int, nargs='+', default=[29500, 29501], help='List of ports for the groups')
@@ -76,14 +77,14 @@ if __name__ == "__main__":
     master_address = MASTER_ADDR
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
-    specific_keys = ['learning_rate', 'algorithm', 'task', 'model_name', 'data_split_method', 'non_iid_alpha','base_optimizer']  # Replace these with your specific keys
+    specific_keys = ['graph', 'train_time', 'learning_rate', 'algorithm', 'task', 'model_name', 'data_split_method', 'non_iid_alpha','base_optimizer']  # Replace these with your specific keys
     log_name = f'full_dup_size={size}_rank={rank}_rw={len(args.group_names)}' + '_'.join(
         [f'{key}={value}' for key, value in vars(args).items() if key in specific_keys])
     probability = .3
     if args.algorithm == 'async_gossip':
-        output_file = f'./configs/bipartite_graph_{size}_nodes_{probability}_prob.json'
+        output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes_{probability}_prob.json'
     else:
-        output_file = f'./configs/erdos_renyi_graph_{size}_nodes_{probability}_prob.json'
+        output_file = f'./configs/{args.graph}_graph_{size}_nodes_{probability}_prob.json'
     neighbors, top_nodes, bottom_nodes = load_graph_as_dict(output_file)
     # neighbors = {
     #     0: [1, ],
