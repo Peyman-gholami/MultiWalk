@@ -15,7 +15,7 @@ def create_erdos_renyi_graph(num_nodes, probability):
         'edges': list(G.edges)
     }
 
-    output_file = f'./configs/erdos_renyi_graph_{num_nodes}_nodes_{probability}_prob.json'
+    output_file = f'./configs/erdos_renyi_graph_{num_nodes}_nodes.json'
     with open(output_file, 'w') as f:
         json.dump(config_data, f, indent=4)
 
@@ -42,7 +42,7 @@ def make_bipartite_and_save(G, num_nodes, probability):
         'bottom_nodes': list(bottom_nodes)
     }
 
-    bipartite_output_file = f'./configs/bipartite_erdos_renyi_graph_{num_nodes}_nodes_{probability}_prob.json'
+    bipartite_output_file = f'./configs/bipartite_erdos_renyi_graph_{num_nodes}_nodes.json'
     with open(bipartite_output_file, 'w') as f:
         json.dump(bipartite_config_data, f, indent=4)
 

@@ -80,11 +80,10 @@ if __name__ == "__main__":
     specific_keys = ['graph', 'train_time', 'learning_rate', 'algorithm', 'task', 'model_name', 'data_split_method', 'non_iid_alpha','base_optimizer']  # Replace these with your specific keys
     log_name = f'full_dup_size={size}_rank={rank}_rw={len(args.group_names)}' + '_'.join(
         [f'{key}={value}' for key, value in vars(args).items() if key in specific_keys])
-    probability = .3
     if args.algorithm == 'async_gossip':
-        output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes_{probability}_prob.json'
+        output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
     else:
-        output_file = f'./configs/{args.graph}_graph_{size}_nodes_{probability}_prob.json'
+        output_file = f'./configs/{args.graph}_graph_{size}_nodes.json'
     neighbors, top_nodes, bottom_nodes = load_graph_as_dict(output_file)
     # neighbors = {
     #     0: [1, ],
