@@ -100,7 +100,7 @@ if __name__ == "__main__":
         "base_optimizer": args.base_optimizer,
         "learning_rate": args.learning_rate,
         "lr_warmup_time": args.lr_warmup_time,
-        "lr_schedule_milestones": [(args.train_time*60*.75, 0.1), (args.train_time*60*.9, 0.1)],
+        "lr_schedule_milestones": [(args.train_time*60*.75, 1), (args.train_time*60*.9, 1)],
         "momentum": args.momentum,
         "weight_decay": args.weight_decay
     }
