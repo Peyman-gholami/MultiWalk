@@ -84,7 +84,7 @@ if __name__ == "__main__":
         output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
     else:
         # output_file = f'./configs/{args.graph}_graph_{size}_nodes.json'
-        output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
+        output_file = f'./configs/{args.graph}_graph_{size}_nodes.json'
     neighbors, top_nodes, bottom_nodes = load_graph_as_dict(output_file)
     # neighbors = {
     #     0: [1, ],
