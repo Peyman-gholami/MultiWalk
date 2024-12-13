@@ -480,9 +480,9 @@ class RandomWalk:
                                       args=(rank, queue, queue_op_id, comm_process_started, shared_state))
         else:
             compute_process = Process(target=self.rw_computation, args=(rank, queue, queue_op_id, comm_process_started))
-
+        print("model created3")
         compute_process.start()
-
+        print("model created4")
         for rw in range(len(self.parent.group_names)):
             if rank == 0:
                 comm_process = Process(target=self.rw_communication, args=(
