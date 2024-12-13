@@ -22,7 +22,7 @@ from utils.tools import (
 
 
 
-# set_start_method('spawn', force=True)
+set_start_method('spawn', force=True)
 
 # logging.basicConfig(level=logging.CRITICAL)
 logging.basicConfig(level=logging.INFO)
@@ -145,11 +145,11 @@ class DecentralizedTraining:
             from tasks.models.resnet20 import ResNet20
             with fork_rng_with_seed(self.config["seed"]):
                 model = ResNet20()
-        elif "gpt" in self.config["model_name"]:
+        elif "opt" in self.config["model_name"]:
             from tasks.models.llm import LLM
 
             with fork_rng_with_seed(self.config["seed"]):
-                model = LLM(self.config["model_name"], "cpu")
+                model = LLM(self.config["model_name"])
         return model
 
 
