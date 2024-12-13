@@ -181,7 +181,7 @@ class MNLITask(Task):
 
         from .models.llm import LLM
         logging.info("MNLI model 1")
-        model = LLM("facebook/opt-1.3b")
+        model = LLM(self._model_name)
         logging.info("MNLI model 2")
         model.to(self._device)
         logging.info("MNLI model 3")
