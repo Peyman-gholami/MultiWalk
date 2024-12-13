@@ -181,7 +181,7 @@ class MNLITask(Task):
 
         from .models.llm import LLM
         logging.info("MNLI model 1")
-        model = LLM(self._model_name)
+        model = LLM("meta-llama/Llama-2-7b-chat-hf")
         logging.info("MNLI model 2")
         model.to(self._device)
         logging.info("MNLI model 3")
