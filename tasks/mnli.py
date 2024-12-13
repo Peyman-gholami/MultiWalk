@@ -29,14 +29,16 @@ class MNLITask(Task):
         self._device = device
         self._model_name = model_name
         self._model = self._create_model()
+        logging.info("MNLI model creatd!")
         self.tokenizer = self._creat_tokenizer()
+        logging.info("MNLI tokenizer creatd!")
         self._criterion = torch.nn.CrossEntropyLoss(reduction='mean').to(self._device)
-
+        logging.info("MNLI criterion creatd!")
         self._weight_decay_per_param = [
             0 if parameter_type(p) == "batch_norm" else weight_decay
             for p, _ in self._model.named_parameters()
         ]
-
+        logging.info("MNLI weight_decay creatd!")
         self.data = MNLIDataset("train", lock, self.tokenizer, device=self._device)
         self.max_batch_size = self.data.max_batch_size
         if rank > -1:
