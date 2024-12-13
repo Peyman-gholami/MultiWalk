@@ -1,8 +1,8 @@
 from transformers import AutoModelForCausalLM
 
-def LLM(model_name):
+def LLM(model_name, device):
     model = AutoModelForCausalLM.from_pretrained(
                     model_name,
-                    device_map = "cpu",
+                    device_map = device,
                 )
     return model

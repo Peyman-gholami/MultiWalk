@@ -149,7 +149,7 @@ class DecentralizedTraining:
             from tasks.models.llm import LLM
 
             with fork_rng_with_seed(self.config["seed"]):
-                model = LLM(self.config["model_name"])
+                model = LLM(self.config["model_name"], "cpu")
         return model
 
 
