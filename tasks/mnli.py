@@ -28,6 +28,7 @@ class MNLITask(Task):
         logging.info("MNLI Begin")
         self._device = device
         self._model_name = model_name
+        logging.info("MNLI model not creatd!")
         self._model = self._create_model()
         logging.info("MNLI model creatd!")
         self.tokenizer = self._creat_tokenizer()
