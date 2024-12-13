@@ -473,6 +473,7 @@ class RandomWalk:
 
         comm_process_started = Value('i', 0)
 
+        print("model created2")
         comm_processes = []
         if rank == 0:
             compute_process = Process(target=self.rw_computation,
@@ -496,7 +497,7 @@ class RandomWalk:
         for p in comm_processes:
             p.terminate()
 
-        print("model created2")
+
 
         if rank == 0:
             eval_process_active.value = 0
