@@ -216,6 +216,16 @@ class MNLIDataset(PyTorchDataset):
 
         super().__init__(dataset, device=device, prepare_batch=self.prepare_batch)
 
+    def random_split(self, fractions: List[float], seed: int = 0) -> List[Dataset]:
+        lengths = [int(f * len(self._set)) for f in fractions]
+        lengths[0] += len(self._set) - sum(lengths)
+        return [
+            PyTorchDataset(split, self._device, prepare_batch=self.prepare_batch)
+            for split in random_split(
+                self._set, lengths, torch.Generator().manual_seed(seed)
+            )
+        ]
+
     def dirichlet_split(
             self,
             num_workers: int,
