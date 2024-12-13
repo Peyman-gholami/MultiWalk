@@ -206,7 +206,6 @@ class DecentralizedTraining:
         return epoch
 
     def run(self, rank):
-        print("in run")
         if self.algorithm == 'random_walk':
             random_walk = RandomWalk(self)
             random_walk.run(rank)
@@ -444,7 +443,6 @@ class RandomWalk:
 
     def run(self, rank):
         model = self.parent.create_model()
-        print("model created1")
         shared_arrays = []
         if rank == 0:
             for _ in range(len(self.parent.group_names)):
@@ -473,16 +471,15 @@ class RandomWalk:
 
         comm_process_started = Value('i', 0)
 
-        print("model created2")
         comm_processes = []
         if rank == 0:
             compute_process = Process(target=self.rw_computation,
                                       args=(rank, queue, queue_op_id, comm_process_started, shared_state))
         else:
             compute_process = Process(target=self.rw_computation, args=(rank, queue, queue_op_id, comm_process_started))
-        print("model created3")
+
         compute_process.start()
-        print("model created4")
+
         for rw in range(len(self.parent.group_names)):
             if rank == 0:
                 comm_process = Process(target=self.rw_communication, args=(
@@ -492,11 +489,10 @@ class RandomWalk:
                                        args=(rank, rw, queue, queue_op_id, comm_process_started))
             comm_process.start()
             comm_processes.append(comm_process)
-        print("model created5")
+
         compute_process.join()
         for p in comm_processes:
             p.terminate()
-
 
 
         if rank == 0:

@@ -17,12 +17,15 @@ from .cifar import PyTorchDataset, parameter_type, fork_rng_with_seed
 
 from transformers import AutoTokenizer
 from datasets import load_dataset
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 class MNLITask(Task):
     def __init__(
             self, device, rank, num_workers, weight_decay, model_name, data_split_method, train_eval_frac, lock, non_iid_alpha=None, seed=0
     ):
-
+        logging.info("MNLI Begin")
         self._device = device
         self._model_name = model_name
         self._model = self._create_model()
@@ -33,7 +36,7 @@ class MNLITask(Task):
             0 if parameter_type(p) == "batch_norm" else weight_decay
             for p, _ in self._model.named_parameters()
         ]
-        print("here")
+
         self.data = MNLIDataset("train", lock, self.tokenizer, device=self._device)
         self.max_batch_size = self.data.max_batch_size
         if rank > -1:
