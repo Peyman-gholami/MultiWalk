@@ -24,8 +24,8 @@ from utils.tools import (
 
 # set_start_method('spawn', force=True)
 
-logging.basicConfig(level=logging.CRITICAL)
-# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.CRITICAL)
+logging.basicConfig(level=logging.INFO)
 
 
 class EventLogger:
@@ -492,7 +492,7 @@ class RandomWalk:
                                        args=(rank, rw, queue, queue_op_id, comm_process_started))
             comm_process.start()
             comm_processes.append(comm_process)
-
+        print("model created5")
         compute_process.join()
         for p in comm_processes:
             p.terminate()
