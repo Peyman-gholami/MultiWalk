@@ -207,7 +207,7 @@ class MNLIDataset(PyTorchDataset):
             dataset = load_dataset("multi_nli", split=split)
 
         dataset = dataset.map(
-            self.form_training_prompts,
+            form_training_prompts,
             remove_columns=["promptID", "pairID", "premise_binary_parse", "premise_parse",
                             "hypothesis_binary_parse", "hypothesis_parse", "hypothesis", "premise", "label"],
             load_from_cache_file=False,
