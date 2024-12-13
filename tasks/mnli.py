@@ -211,10 +211,10 @@ class MNLIDataset(PyTorchDataset):
             remove_columns=["promptID", "pairID", "premise_binary_parse", "premise_parse",
                             "hypothesis_binary_parse", "hypothesis_parse", "hypothesis", "premise", "label"],
             load_from_cache_file=False,
-            desc="Generating and tokenizing text prompts",
+            desc="Generating text prompts",
         )
 
-        super().__init__(dataset, device=device)
+        super().__init__(dataset, device=device, prepare_batch=self.prepare_batch)
 
     def dirichlet_split(
             self,
