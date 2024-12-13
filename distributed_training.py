@@ -145,7 +145,7 @@ class DecentralizedTraining:
             from tasks.models.resnet20 import ResNet20
             with fork_rng_with_seed(self.config["seed"]):
                 model = ResNet20()
-        elif "opt" in self.config["model_name"]:
+        elif "gpt" in self.config["model_name"]:
             from tasks.models.llm import LLM
 
             with fork_rng_with_seed(self.config["seed"]):
