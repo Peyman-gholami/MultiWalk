@@ -444,6 +444,7 @@ class RandomWalk:
 
     def run(self, rank):
         model = self.parent.create_model()
+        print("model created1")
         shared_arrays = []
         if rank == 0:
             for _ in range(len(self.parent.group_names)):
@@ -495,6 +496,7 @@ class RandomWalk:
         for p in comm_processes:
             p.terminate()
 
+        print("model created2")
 
         if rank == 0:
             eval_process_active.value = 0
