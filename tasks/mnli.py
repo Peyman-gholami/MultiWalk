@@ -31,7 +31,7 @@ class MNLITask(Task):
         logging.info("MNLI model not creatd!")
         self._model = self._create_model()
         logging.info("MNLI model creatd!")
-        self.tokenizer = self._creat_tokenizer()
+        self.tokenizer = self._create_tokenizer()
         logging.info("MNLI tokenizer creatd!")
         self._criterion = torch.nn.CrossEntropyLoss(reduction='mean').to(self._device)
         logging.info("MNLI criterion creatd!")
@@ -178,12 +178,10 @@ class MNLITask(Task):
         return output, state
 
     def _create_model(self):
-        from .models.resnet20 import ResNet20
 
-        model = ResNet20()
-        # from .models.llm import LLM
-        # logging.info("MNLI model 1")
-        # model = LLM("facebook/opt-125m")
+        from .models.llm import LLM
+        logging.info("MNLI model 1")
+        model = LLM(self._model_name)
         logging.info("MNLI model 2")
         model.to(self._device)
         logging.info("MNLI model 3")
