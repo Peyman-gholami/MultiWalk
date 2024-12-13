@@ -233,7 +233,7 @@ class MNLIDataset(PyTorchDataset):
             )
 
         return [
-            PyTorchDataset(Subset(self._set, indices), self._device)
+            PyTorchDataset(Subset(self._set, indices), self._device, prepare_batch=self.prepare_batch)
             for indices in indices_per_worker
         ]
 
@@ -246,29 +246,6 @@ class MNLIDataset(PyTorchDataset):
         batch = {k: v.to(self._device) for k, v in batch.items()}
         return batch
 
-    def iterator(
-            self, batch_size: int, shuffle=True, repeat=True, ref_num_data=None
-    ) -> Iterable[Tuple[float, Batch]]:
-        if ref_num_data is not None:
-            nn = int(ref_num_data / batch_size)
-        else:
-            nn = int(len(self) / batch_size)
-
-        loader = DataLoader(
-            self._set,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            pin_memory=True,
-            drop_last=True,
-            num_workers=2,
-        )
-        step = 0
-        for _ in itertools.count() if repeat else [0]:
-            for i, batch in enumerate(loader):
-                #epoch_fractional = float(step) / nn
-                epoch_fractional = float(1) / nn
-                yield epoch_fractional, self.prepare_batch(batch)
-                step += 1
 
 
 def form_training_prompts(example):
