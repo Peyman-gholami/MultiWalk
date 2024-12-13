@@ -1,8 +1,8 @@
 from transformers import AutoModelForCausalLM
 
-def LLM():
+def LLM(model_name):
     model = AutoModelForCausalLM.from_pretrained(
-                    self._model_name,
+                    model_name,
                     # load_in_8bit=True,
                     # device_map='auto',
                 )

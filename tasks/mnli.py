@@ -174,7 +174,7 @@ class MNLITask(Task):
     def _create_model(self):
         from .models.llm import LLM
 
-        model = LLM()
+        model = LLM(self._model_name)
         model.to(self._device)
         model.train()
         return model
