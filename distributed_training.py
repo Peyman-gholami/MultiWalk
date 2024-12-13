@@ -206,6 +206,7 @@ class DecentralizedTraining:
         return epoch
 
     def run(self, rank):
+        print("in run")
         if self.algorithm == 'random_walk':
             random_walk = RandomWalk(self)
             random_walk.run(rank)
