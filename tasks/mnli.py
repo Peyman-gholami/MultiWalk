@@ -33,7 +33,7 @@ class MNLITask(Task):
             0 if parameter_type(p) == "batch_norm" else weight_decay
             for p, _ in self._model.named_parameters()
         ]
-
+        print("here")
         self.data = MNLIDataset("train", lock, self.tokenizer, device=self._device)
         self.max_batch_size = self.data.max_batch_size
         if rank > -1:
