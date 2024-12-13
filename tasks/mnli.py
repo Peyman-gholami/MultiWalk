@@ -72,7 +72,7 @@ class MNLITask(Task):
                 fractions=[train_eval_frac, 1-train_eval_frac], seed=seed+85
             )
             self.data = splits[0]
-        self._test_data = MNLIDataset("test", lock, self.tokenizer, device=self._device)
+        self._test_data = MNLIDataset("validation_matched", lock, self.tokenizer, device=self._device)
 
     def initialize(self, seed) -> Tuple[Parameters]:
         with fork_rng_with_seed(seed):
