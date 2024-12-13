@@ -141,7 +141,7 @@ class DecentralizedTraining:
             )
 
     def create_model(self):
-        if True:#self.config["model_name"] == "ResNet20":
+        if self.config["model_name"] == "ResNet20":
             from tasks.models.resnet20 import ResNet20
             with fork_rng_with_seed(self.config["seed"]):
                 model = ResNet20()
