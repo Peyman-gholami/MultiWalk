@@ -178,9 +178,12 @@ class MNLITask(Task):
         return output, state
 
     def _create_model(self):
-        from .models.llm import LLM
-        logging.info("MNLI model 1")
-        model = LLM("facebook/opt-125m")
+        from .models.resnet20 import ResNet20
+
+        model = ResNet20()
+        # from .models.llm import LLM
+        # logging.info("MNLI model 1")
+        # model = LLM("facebook/opt-125m")
         logging.info("MNLI model 2")
         model.to(self._device)
         logging.info("MNLI model 3")
