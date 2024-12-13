@@ -180,7 +180,7 @@ class MNLITask(Task):
     def _create_model(self):
         from .models.llm import LLM
         logging.info("MNLI model 1")
-        model = LLM(self._model_name)
+        model = LLM("facebook/opt-125m")
         logging.info("MNLI model 2")
         model.to(self._device)
         logging.info("MNLI model 3")
