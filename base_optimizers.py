@@ -83,16 +83,20 @@ class AdamState(NamedTuple):
 class Adam(BaseOptimizer):
     def init(self, parameters: List[torch.Tensor]) -> OptimizerState:
         return AdamState(
+            # Initialize exp_avgs on the same device as parameters
             [
-                torch.zeros_like(p, memory_format=torch.preserve_format)
+                torch.zeros_like(p, memory_format=torch.preserve_format, device=p.device)
                 for p in parameters
             ],
+            # Initialize exp_avg_sqs on the same device as parameters
             [
-                torch.zeros_like(p, memory_format=torch.preserve_format)
+                torch.zeros_like(p, memory_format=torch.preserve_format, device=p.device)
                 for p in parameters
             ],
+            # Initialize max_exp_avg_sqs if required (empty list for now)
             [],
-            [torch.tensor(0, dtype=torch.float32, device=p.device) for p in parameters],  # Initialize as tensors
+            # Initialize step as tensors on the same device as parameters
+            [torch.tensor(0, dtype=torch.float32, device=p.device) for p in parameters],
         )
 
     def step(
