@@ -120,4 +120,5 @@ class Adam(BaseOptimizer):
             lr=lr,
             weight_decay=0.0,  # already taken care of in the task
             eps=1e-8,
+            maximize=False,
         )
