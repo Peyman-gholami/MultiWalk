@@ -107,6 +107,11 @@ class Adam(BaseOptimizer):
         for i in range(len(optimizer_state.step)):
             optimizer_state.step[i] += 1
 
+        for param, grad, exp_avg, exp_avg_sq in zip(parameters, gradients, optimizer_state.exp_avgs,
+                                                    optimizer_state.exp_avg_sqs):
+            print(
+                f"Param device: {param.device}, Grad device: {grad.device}, Exp Avg device: {exp_avg.device}, Exp Avg Sq device: {exp_avg_sq.device}")
+
         # Call torch.optim._functional.adam with updated step (singleton tensors)
         torch.optim._functional.adam(
             params=parameters,
