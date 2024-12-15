@@ -74,15 +74,17 @@ class SGD(BaseOptimizer):
         )
 
 
+
+
 class AdamState(NamedTuple):
     exp_avgs: List[torch.Tensor]
     exp_avg_sqs: List[torch.Tensor]
     max_exp_avg_sqs: List[torch.Tensor]
-    step: List[int]
+    step: List[torch.Tensor]  # Change step to store tensors instead of integers
 
 
-class Adam(BaseOptimizer):
-    def init(self, parameters: List[torch.Tensor]) -> OptimizerState:
+class Adam:
+    def init(self, parameters: List[torch.Tensor]) -> AdamState:
         return AdamState(
             [
                 torch.zeros_like(p, memory_format=torch.preserve_format)
@@ -93,32 +95,35 @@ class Adam(BaseOptimizer):
                 for p in parameters
             ],
             [],
-            [0 for p in parameters],
+            [torch.tensor(0, dtype=torch.float32) for p in parameters],  # Initialize as tensors
         )
 
     def step(
         self,
         parameters: List[torch.Tensor],
         gradients: List[torch.Tensor],
-        optimizer_state: OptimizerState,
+        optimizer_state: AdamState,
         lr: float,
     ) -> None:
         """Updates parameters and optimizer_state in place"""
+        # Increment step count as tensors
         for i in range(len(optimizer_state.step)):
             optimizer_state.step[i] += 1
+
+        # Ensure step is passed as a list of singleton tensors
         torch.optim._functional.adam(
-            parameters,
-            gradients,
-            optimizer_state.exp_avgs,
-            optimizer_state.exp_avg_sqs,
-            optimizer_state.max_exp_avg_sqs,
-            # the default step starts from 0.
-            state_steps=optimizer_state.step,
+            params=parameters,
+            grads=gradients,
+            exp_avgs=optimizer_state.exp_avgs,
+            exp_avg_sqs=optimizer_state.exp_avg_sqs,
+            max_exp_avg_sqs=optimizer_state.max_exp_avg_sqs,
+            state_steps=optimizer_state.step,  # This now contains singleton tensors
             amsgrad=False,
             beta1=0.9,
             beta2=0.999,
             lr=lr,
-            weight_decay=0.0,  # already taken care of in the task
+            weight_decay=0.0,  # Already handled elsewhere
             eps=1e-8,
             maximize=False,
         )
+
