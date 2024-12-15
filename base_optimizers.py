@@ -85,18 +85,18 @@ class Adam(BaseOptimizer):
         return AdamState(
             # Initialize exp_avgs on the same device as parameters
             [
-                torch.zeros_like(p, memory_format=torch.preserve_format, device=p.device)
+                torch.zeros_like(p, memory_format=torch.preserve_format, device='cuda')
                 for p in parameters
             ],
             # Initialize exp_avg_sqs on the same device as parameters
             [
-                torch.zeros_like(p, memory_format=torch.preserve_format, device=p.device)
+                torch.zeros_like(p, memory_format=torch.preserve_format, device='cuda')
                 for p in parameters
             ],
             # Initialize max_exp_avg_sqs if required (empty list for now)
             [],
             # Initialize step as tensors on the same device as parameters
-            [torch.tensor(0, dtype=torch.float32, device=p.device) for p in parameters],
+            [torch.tensor(0, dtype=torch.float32, device='cuda') for p in parameters],
         )
 
     def step(
