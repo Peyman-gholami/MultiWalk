@@ -5,4 +5,6 @@ def LLM(model_name):
                     model_name,
                     load_in_8bit=True,
                 )
+    for param in model.parameters():
+        param.requires_grad = True
     return model
