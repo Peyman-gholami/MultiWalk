@@ -73,18 +73,15 @@ class SGD(BaseOptimizer):
             maximize=False,
         )
 
-
-
-
 class AdamState(NamedTuple):
     exp_avgs: List[torch.Tensor]
     exp_avg_sqs: List[torch.Tensor]
     max_exp_avg_sqs: List[torch.Tensor]
-    step: List[torch.Tensor]  # Change step to store tensors instead of integers
+    step: List[torch.Tensor]  # Updated to store tensors instead of integers
 
 
-class Adam:
-    def init(self, parameters: List[torch.Tensor]) -> AdamState:
+class Adam(BaseOptimizer):
+    def init(self, parameters: List[torch.Tensor]) -> OptimizerState:
         return AdamState(
             [
                 torch.zeros_like(p, memory_format=torch.preserve_format)
@@ -95,29 +92,29 @@ class Adam:
                 for p in parameters
             ],
             [],
-            [torch.tensor(0, dtype=torch.float32) for p in parameters],  # Initialize as tensors
+            [torch.tensor(0, dtype=torch.float32, device=p.device) for p in parameters],  # Initialize as tensors
         )
 
     def step(
         self,
         parameters: List[torch.Tensor],
         gradients: List[torch.Tensor],
-        optimizer_state: AdamState,
+        optimizer_state: OptimizerState,
         lr: float,
     ) -> None:
         """Updates parameters and optimizer_state in place"""
-        # Increment step count as tensors
+        # Increment step counts (tensors)
         for i in range(len(optimizer_state.step)):
             optimizer_state.step[i] += 1
 
-        # Ensure step is passed as a list of singleton tensors
+        # Call torch.optim._functional.adam with updated step (singleton tensors)
         torch.optim._functional.adam(
             params=parameters,
             grads=gradients,
             exp_avgs=optimizer_state.exp_avgs,
             exp_avg_sqs=optimizer_state.exp_avg_sqs,
             max_exp_avg_sqs=optimizer_state.max_exp_avg_sqs,
-            state_steps=optimizer_state.step,  # This now contains singleton tensors
+            state_steps=optimizer_state.step,  # Now contains singleton tensors
             amsgrad=False,
             beta1=0.9,
             beta2=0.999,
@@ -126,4 +123,3 @@ class Adam:
             eps=1e-8,
             maximize=False,
         )
-
