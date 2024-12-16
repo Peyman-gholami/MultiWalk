@@ -24,8 +24,8 @@ from utils.tools import (
 
 # set_start_method('spawn', force=True)
 
-# logging.basicConfig(level=logging.CRITICAL)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.CRITICAL)
+# logging.basicConfig(level=logging.INFO)
 
 
 class EventLogger:
@@ -81,7 +81,7 @@ class EventLogger:
 
 class DecentralizedTraining:
     def __init__(self, size, local_rank, tau, train_time, neighbors, top_nodes, rw_starting_ranks, master_address, ports, group_names, algorithm, config, evaluate_interval,
-                 eval_gpu, train_eval_frac, log_name, spawn_multiprocessing):
+                 eval_gpu, train_eval_frac, log_name):
         self.size = size
         self.local_rank = local_rank
         self.tau = tau
@@ -101,9 +101,6 @@ class DecentralizedTraining:
         self.eval_gpu = eval_gpu
         self.train_eval_frac = train_eval_frac
         self.log_name = log_name
-        if spawn_multiprocessing:
-            pass
-            # set_start_method('spawn', force=True)
 
     def init_process(self, rank, size, backend, port, group_name):
         init_method = f'tcp://{self.master_address}:{port}'

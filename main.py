@@ -103,10 +103,8 @@ if __name__ == "__main__":
         "weight_decay": args.weight_decay
     }
 
-    spawn_multiprocessing = False
     if args.task == 'MNLI':
         set_start_method('spawn', force=True)
-        spawn_multiprocessing = True
 
 
     training = DecentralizedTraining(
@@ -126,7 +124,6 @@ if __name__ == "__main__":
         eval_gpu=args.eval_gpu,
         train_eval_frac=args.train_eval_frac,
         log_name = log_name,
-        spawn_multiprocessing = spawn_multiprocessing
     )
     training.run(rank)
     # Send log file to remote server
