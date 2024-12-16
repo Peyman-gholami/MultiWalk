@@ -41,6 +41,7 @@ class MNLITask(Task):
         ]
         logging.info("MNLI weight_decay creatd!")
         self.data = MNLIDataset("train", lock, self.tokenizer, device=self._device)
+        logging.info("dataset creatd!")
         self.max_batch_size = self.data.max_batch_size
         if rank > -1:
             if num_workers > 1:
