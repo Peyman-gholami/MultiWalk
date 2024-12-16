@@ -22,7 +22,7 @@ from utils.tools import (
 
 
 
-set_start_method('spawn', force=True)
+# set_start_method('spawn', force=True)
 
 # logging.basicConfig(level=logging.CRITICAL)
 logging.basicConfig(level=logging.INFO)
@@ -102,7 +102,8 @@ class DecentralizedTraining:
         self.train_eval_frac = train_eval_frac
         self.log_name = log_name
         if spawn_multiprocessing:
-            set_start_method('spawn', force=True)
+            pass
+            # set_start_method('spawn', force=True)
 
     def init_process(self, rank, size, backend, port, group_name):
         init_method = f'tcp://{self.master_address}:{port}'

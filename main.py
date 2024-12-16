@@ -3,6 +3,7 @@ import os
 from distributed_training import DecentralizedTraining
 import subprocess
 import json
+from torch.multiprocessing import set_start_method
 
 
 # "task": "ImageNet",
@@ -104,6 +105,7 @@ if __name__ == "__main__":
 
     spawn_multiprocessing = False
     if args.task == 'MNLI':
+        set_start_method('spawn', force=True)
         spawn_multiprocessing = True
 
 
