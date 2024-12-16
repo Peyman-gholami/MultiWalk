@@ -83,13 +83,9 @@ if __name__ == "__main__":
     if args.algorithm == 'async_gossip':
         output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
     else:
-        # output_file = f'./configs/{args.graph}_graph_{size}_nodes.json'
         output_file = f'./configs/{args.graph}_graph_{size}_nodes.json'
     neighbors, top_nodes, bottom_nodes = load_graph_as_dict(output_file)
-    # neighbors = {
-    #     0: [1, ],
-    #     1: [0, ],
-    # }
+
 
     config = {
         "seed": args.seed,
@@ -105,6 +101,10 @@ if __name__ == "__main__":
         "momentum": args.momentum,
         "weight_decay": args.weight_decay
     }
+
+    spawn_multiprocessing = False
+    if args.task == 'MNLI':
+        spawn_multiprocessing = True
 
 
     training = DecentralizedTraining(
@@ -124,6 +124,7 @@ if __name__ == "__main__":
         eval_gpu=args.eval_gpu,
         train_eval_frac=args.train_eval_frac,
         log_name = log_name,
+        spawn_multiprocessing = spawn_multiprocessing
     )
     training.run(rank)
     # Send log file to remote server
