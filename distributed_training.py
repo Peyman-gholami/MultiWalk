@@ -24,8 +24,8 @@ from utils.tools import (
 
 # set_start_method('spawn', force=True)
 
-logging.basicConfig(level=logging.CRITICAL)
-# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.CRITICAL)
+logging.basicConfig(level=logging.INFO)
 
 
 class EventLogger:
