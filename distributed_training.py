@@ -189,7 +189,7 @@ class DecentralizedTraining:
             logger.log_start("evaluation")
             # test_loss = task.evaluate(task._test_data, parameters, state)
             train_loss = task.evaluate(task.data, parameters, state)
-            logging.info(f"Evaluation at interval: Test loss: {test_loss}")
+            # logging.info(f"Evaluation at interval: Test loss: {test_loss}")
             logging.info(f"Evaluation at interval: Train loss: {train_loss}")
             # logger.log_end("evaluation", {"test loss": test_loss, "train loss": train_loss})
             logger.log_end("evaluation", {"test loss": train_loss, "train loss": train_loss})
