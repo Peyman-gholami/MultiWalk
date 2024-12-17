@@ -24,8 +24,8 @@ from utils.tools import (
 
 # set_start_method('spawn', force=True)
 
-# logging.basicConfig(level=logging.CRITICAL)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.CRITICAL)
+# logging.basicConfig(level=logging.INFO)
 
 
 class EventLogger:
@@ -151,6 +151,7 @@ class DecentralizedTraining:
             with fork_rng_with_seed(self.config["seed"]):
                 model = LLM(self.config["model_name"])
         return model
+
 
 
 
