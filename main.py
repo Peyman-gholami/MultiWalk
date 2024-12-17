@@ -70,6 +70,8 @@ if __name__ == "__main__":
     parser.add_argument('--eval_gpu', type=int, default=0, help='GPU to use for evaluation')
     parser.add_argument('--train_eval_frac', type=float, default=.5,
                         help='Fraction of data to use for training and evaluation')
+    parser.add_argument('--no_test_set_eval', action='store_true',
+                        help='If provided, set no_test_set_eval to True. Default is False.')
 
     args = parser.parse_args()
 
@@ -123,6 +125,7 @@ if __name__ == "__main__":
         evaluate_interval=args.evaluate_interval,# seconds
         eval_gpu=args.eval_gpu,
         train_eval_frac=args.train_eval_frac,
+        no_test_set_eval=args.no_test_set_eval,
         log_name = log_name,
     )
     training.run(rank)

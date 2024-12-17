@@ -81,7 +81,7 @@ class EventLogger:
 
 class DecentralizedTraining:
     def __init__(self, size, local_rank, tau, train_time, neighbors, top_nodes, rw_starting_ranks, master_address, ports, group_names, algorithm, config, evaluate_interval,
-                 eval_gpu, train_eval_frac, log_name):
+                 eval_gpu, train_eval_frac, no_test_set_eval, log_name):
         self.size = size
         self.local_rank = local_rank
         self.tau = tau
@@ -100,6 +100,7 @@ class DecentralizedTraining:
         self.evaluate_interval = evaluate_interval
         self.eval_gpu = eval_gpu
         self.train_eval_frac = train_eval_frac
+        self.no_test_set_eval = no_test_set_eval
         self.log_name = log_name
 
     def init_process(self, rank, size, backend, port, group_name):
@@ -187,12 +188,13 @@ class DecentralizedTraining:
             state = load_from_shared(state, shared_state, device)
 
             logger.log_start("evaluation")
-            # test_loss = task.evaluate(task._test_data, parameters, state)
             train_loss = task.evaluate(task.data, parameters, state)
-            # logging.info(f"Evaluation at interval: Test loss: {test_loss}")
             logging.info(f"Evaluation at interval: Train loss: {train_loss}")
-            # logger.log_end("evaluation", {"test loss": test_loss, "train loss": train_loss})
-            logger.log_end("evaluation", {"test loss": train_loss, "train loss": train_loss})
+            test_loss = train_loss
+            if not self.no_test_set_eval:
+                test_loss = task.evaluate(task._test_data, parameters, state)
+                logging.info(f"Evaluation at interval: Test loss: {test_loss}")
+            logger.log_end("evaluation", {"test loss": test_loss, "train loss": train_loss})
 
 
     def local_sgd(self, task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time):
