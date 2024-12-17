@@ -142,7 +142,7 @@ class MNLITask(Task):
         """Average quality on a dataset"""
         mean_quality = None
         count = 0
-        for _, batch in dataset.iterator(batch_size=8, shuffle=False, repeat=False):
+        for _, batch in dataset.iterator(batch_size=4, shuffle=False, repeat=False):
             quality = self.quality(parameters, state, batch)
             if mean_quality is None:
                 count = len(batch)
