@@ -5,12 +5,16 @@ from datetime import datetime
 import numpy as np
 
 # Define the config dictionary specifying the required attributes for each event type
+
+
 config = {
     'communication': ['end_time', 'bytes_sent', 'duration'],
     'local sgd': ['end_time', 'duration', 'iteration', 'epoch'],
     'evaluation': ['start_time', 'train loss', 'test loss']
 }
-duration = 15 * 60
+
+duration = 30 * 60
+local_steps_per_iter = 5
 
 def check_criteria(log_file, criteria):
     # Open the log file for reading
@@ -96,6 +100,7 @@ def aggregate_logs(base_path, criteria):
     all_parsed_data = []
 
     # List all files in the base path directory
+    print(criteria)
     for file in os.listdir(base_path):
         log_filename = os.path.join(base_path, file)
         if check_criteria(log_filename, criteria):
@@ -103,11 +108,11 @@ def aggregate_logs(base_path, criteria):
             print(log_filename)
 
 
-            # Find start and end time from communication
-            communication_times = [convert_to_datetime(entry[0]) for entry in parsed_data['local sgd']]
-            start_time = min(communication_times)
-            end_time = max(communication_times)
-
+            # Find start and end time from computation
+            computation_times = [convert_to_datetime(entry[0]) for entry in parsed_data['local sgd']]
+            start_time = min(computation_times)
+            end_time = max(computation_times)
+            # print(start_time, end_time)
             # Filter and normalize times, and convert to seconds since start_time
             for event in parsed_data:
                 filtered_entries = []
@@ -148,36 +153,74 @@ def aggregate_logs(base_path, criteria):
 
 
 # Define the base path and criteria
-base_path = '/Users/peyman_gh/.kube/logs'
+base_path = '/Users/peyman_gh/.kube/noniid_logs'
 criterias = [
-    ["rw=1learning",
+    ["rw=1graph=erdos_renyi",
+     "learning_rate=0.05",
+     "algorithm=random_walk",
+     "task=Cifar",
+     "split_method=dirichlet_non_iid_alpha=0.1"
+     ],
+    ["rw=4graph=erdos_renyi",
     "learning_rate=0.05",
     "algorithm=random_walk",
     "task=Cifar",
-     "split_method=dirichlet_non_iid_alpha=0.1"],
-
-    ["rw=2learning",
+     "split_method=dirichlet_non_iid_alpha=0.1"
+     ],
+    ["rw=8graph=erdos_renyi",
+     "learning_rate=0.05",
+     "algorithm=random_walk",
+     "task=Cifar",
+     "split_method=dirichlet_non_iid_alpha=0.1"
+     ],
+    ["rw=12graph=erdos_renyi",
      "learning_rate=0.05",
      "algorithm=random_walk",
      "task=Cifar",
      "split_method=dirichlet_non_iid_alpha=0.1"],
+    # #
+    # ["rw=15graph=cycle",
+    #  "learning_rate=0.05",
+    #  "algorithm=random_walk",
+    #  "task=Cifar",
+    #  "split_method=dirichlet_non_iid_alpha=1.0"],
+    # ["rw=20graph=complete",
+    #  "learning_rate=0.05",
+    #  "algorithm=random_walk",
+    #  "task=Cifar",
+    #  "split_method=dirichlet_non_iid_alpha=1"],
+    # #
+    # ["rw=6graph=cycle",
+    #  "learning_rate=0.05",
+    #  "algorithm=random_walk",
+    #  "task=Cifar",
+    #  "split_method=dirichlet_non_iid_alpha=10"],
+    #
+    # ["rw=12learning",
+    #  "learning_rate=0.01",
+    #  "algorithm=random_walk",
+    #  "task=Cifar",
+    #  "split_method=dirichlet_non_iid_alpha=0.1"],
+
+
+
     #
     # ["rw=4learning",
     # "learning_rate=0.05",
     # "algorithm=random_walk",
     # "task=Cifar"],
 
-    ["rw=6learning",
-    "learning_rate=0.05",
-    "algorithm=random_walk",
-    "task=Cifar",
-     "split_method=dirichlet_non_iid_alpha=0.1"],
+    # ["rw=6learning",
+    # "learning_rate=0.01",
+    # "algorithm=random_walk",
+    # "task=Cifar",
+    # "split_method=dirichlet_non_iid_alpha=1.0"],
 
-    ["rw=12learning",
-     "learning_rate=0.01",
-     "algorithm=random_walk",
-     "task=Cifar",
-     "split_method=dirichlet_non_iid_alpha=0.1"],
+    # ["rw=12learning",
+    #  "learning_rate=0.01",
+    #  "algorithm=random_walk",
+    #  "task=Cifar",
+    #  "split_method=dirichlet_non_iid_alpha=1.0"],
 
 
 
@@ -192,7 +235,12 @@ criterias = [
     #
     # ["full_dup_size=20_rank=0_rw=14"],
 
-    ["algorithm=async_gossip_task","learning_rate=0.01","split_method=dirichlet_non_iid_alpha=0.1"]
+    ["algorithm=async_gossip_task",
+     "graph=erdos_renyi",
+     "learning_rate=0.05",
+     "task=Cifar",
+     "split_method=dirichlet_non_iid_alpha=0.1"
+     ]
 
 ]
 
@@ -203,6 +251,7 @@ for criteria in criterias:
     aggregated_data = aggregate_logs(base_path, criteria)
     data.append(aggregated_data)
 
+#%%
 t_values = np.linspace(0,duration,50)#np.linspace(0,min(min(data[i][j]["evaluation"][-1] for j in range(len(data[i]))) for trial in trials), 100)
 processed_mean = []
 processed_std = []
@@ -238,97 +287,115 @@ for case in data:
 import matplotlib.pyplot as plt
 import matplotlib
 
-fig,ax = plt.subplots(figsize=(24,10),nrows=2, ncols=2)
-ax = ax.flatten()
-plt.rcParams.update({'font.size': 19})
-plt.xticks(fontsize = 19)
-plt.yticks(fontsize = 19)
-colors = matplotlib.cm.tab20(range(20))
-b=0
-c=0
-markers=["o","X","P","^","v","s","h","<",">","d","*"]
-every=[5,5,5,5,5,5,5,5,5,5,5]
-order = [10,0,9,5,5,6,5,6,6]
-legends = ["1rw", "2rw", "6rw", "12rw",  "AD-PSGD"]
+x_values_list = [
+    [t_values for i in range(len(data))],
+    [processed_mean[i]['local sgd'][1]/100/local_steps_per_iter for i in range(len(data))],
+    [processed_mean[i]['communication'][0] / 1024 / 1024 / 1024 for i in range(len(data))]
+]
+output_filenames_list = ["figure_time_", "figure_iters_", "figure_communication_"]
+xlabel_list = ["time (seconds)", "iteration ($10^2$)", "communication overhead (GB)"]
+
+for idx in range(len(x_values_list)):
+
+    fig,ax = plt.subplots(figsize=(24,10),nrows=2, ncols=2)
+    ax = ax.flatten()
+    plt.rcParams.update({'font.size': 19})
+    plt.xticks(fontsize = 19)
+    plt.yticks(fontsize = 19)
+    colors = matplotlib.cm.tab20(range(20))
+    b=0
+    c=0
+    markers=["o","X","P","^","v","s","h","<",">","d","*"]
+    every=[5,5,5,5,5,5,5,5,5,5,5]
+    order = [10,0,9,5,5,6,5,6,6]
+    # legends = ["MW-4","MW-4", "MW-8", "MW-12", "AD-PSGD"]
+    legends = ["MW-1", "MW-4","MW-8","MW-12", "AD-PSGD"]
 
 
-for i in range(len(data)):
-    x = t_values#[entry[0] for entry in data[i]['evaluation']]
-    y = processed_mean[i]['evaluation'][0]#[entry[1] for entry in data[i]['evaluation']]
-    ax[0].plot(x, y)
-    std = processed_std[i]['evaluation'][0]
-    ax[0].fill_between(x, y - std, y + std, alpha=0.2,label='_nolegend_')
+    for i in range(len(data)):
+        x = x_values_list[idx][i]
+        y = processed_mean[i]['evaluation'][0]
+        ax[0].plot(x, y)
+        std = processed_std[i]['evaluation'][0]
+        ax[0].fill_between(x, y - std, y + std, alpha=0.2,label='_nolegend_')
 
-for i,line in enumerate(ax[0].get_lines()):
-    # line.set_marker(markers[i])
-    # line.set_markevery(5)
-    # line.set_color(colors[i])
-    line.set_markersize(10)
+    for i,line in enumerate(ax[0].get_lines()):
+        # line.set_marker(markers[i])
+        # line.set_markevery(5)
+        # line.set_color(colors[i])
+        line.set_markersize(10)
 
-ax[0].set_ylabel('Training global loss')
-ax[0].set_xlabel('time (seconds)')
-ax[0].legend(legends)
-ax[0].grid(True,which="both")
-
-
-
-
-for i in range(len(data)):
-    x = t_values#[entry[0] for entry in data[i]['evaluation']]
-    y = processed_mean[i]['evaluation'][1]#[entry[2] for entry in processed_mean[i]['evaluation']]
-    ax[1].plot(x, y)
-    std = processed_std[i]['evaluation'][1]
-    ax[1].fill_between(x, y - std, y + std, alpha=0.2, label='_nolegend_')
-
-for i,line in enumerate(ax[1].get_lines()):
-    # line.set_marker(markers[i])
-    # line.set_markevery(5)
-    # line.set_color(colors[i])
-    line.set_markersize(10)
-
-ax[1].set_ylabel('Training accuracy')
-ax[1].set_xlabel('time (seconds)')
-ax[1].legend(legends)
-ax[1].grid(True,which="both")
+    ax[0].set_ylabel('training global loss')
+    ax[0].set_xlabel(xlabel_list[idx]) #ax[0].set_xlabel('time (seconds)')
+    ax[0].legend(legends)
+    ax[0].grid(True,which="both")
+    ax[0].set_ylim([0, 4])
 
 
 
-for i in range(len(data)):
-    x = t_values#[entry[0] for entry in data[i]['communication']]
-    y = processed_mean[i]['communication'][0]/ 1024 / 1024 #[entry[1] / 1024 / 1024 for entry in data[i]['communication']]
-    ax[2].plot(x, y)
-    std = processed_std[i]['communication'][0]/ 1024 / 1024
-    ax[2].fill_between(x, y - std, y + std, alpha=0.2, label='_nolegend_')
+    for i in range(len(data)):
+        x = x_values_list[idx][i]
+        y = processed_mean[i]['evaluation'][1]#[entry[2] for entry in processed_mean[i]['evaluation']]
+        ax[1].plot(x, y)
+        std = processed_std[i]['evaluation'][1]
+        ax[1].fill_between(x, y - std, y + std, alpha=0.2, label='_nolegend_')
 
-for i,line in enumerate(ax[2].get_lines()):
-    # line.set_marker(markers[i])
-    # line.set_markevery(50)
-    # line.set_color(colors[i])
-    line.set_markersize(5)
+    for i,line in enumerate(ax[1].get_lines()):
+        # line.set_marker(markers[i])
+        # line.set_markevery(5)
+        # line.set_color(colors[i])
+        line.set_markersize(10)
 
-ax[2].set_ylabel('communication load (GB)')
-ax[2].set_xlabel('time (seconds)')
-ax[2].legend(legends)
-ax[2].set_yscale('log')
-ax[2].grid(True,which="both")
-
+    ax[1].set_ylabel('training accuracy')
+    ax[1].set_xlabel(xlabel_list[idx])#ax[1].set_xlabel('iteration')#ax[1].set_xlabel('time (seconds)')
+    ax[1].legend(legends)
+    ax[1].grid(True,which="both")
 
 
-for i in range(len(data)):
-    x = t_values#[entry[0] for entry in data[i]['local sgd']]
-    y = processed_mean[i]['local sgd'][0]#[entry[1] / 60 for entry in data[i]['local sgd']]
-    ax[3].plot(x, y)
-    std = processed_std[i]['local sgd'][0]
-    ax[3].fill_between(x, y - std, y + std, alpha=0.2, label='_nolegend_')
 
-for i,line in enumerate(ax[3].get_lines()):
-    # line.set_marker(markers[i])
-    # line.set_markevery(50)
-    # line.set_color(colors[i])
-    line.set_markersize(5)
 
-ax[3].set_ylabel('GPU usage (minutes)')
-ax[3].set_xlabel('time (seconds)')
-ax[3].legend(legends)
-# ax[3].set_yscale('log')
-ax[3].grid(True,which="both")
+    for i in range(len(data)):
+        x = x_values_list[idx][i]
+        y = processed_mean[i]['communication'][0]/ 1024 / 1024 / 1024 #[entry[1] / 1024 / 1024 for entry in data[i]['communication']]
+        ax[2].plot(x, y)
+        std = processed_std[i]['communication'][0]/ 1024 / 1024 / 1024
+        ax[2].fill_between(x, y - std, y + std, alpha=0.2, label='_nolegend_')
+
+    for i,line in enumerate(ax[2].get_lines()):
+        # line.set_marker(markers[i])
+        # line.set_markevery(50)
+        # line.set_color(colors[i])
+        line.set_markersize(5)
+
+    ax[2].set_ylabel('communication overhead (GB)')
+    ax[2].set_xlabel(xlabel_list[idx])#ax[2].set_xlabel('time (seconds)')
+    ax[2].legend(legends)
+    ax[2].set_yscale('log')
+    ax[2].grid(True,which="both")
+
+
+
+    for i in range(len(data)):
+        x = x_values_list[idx][i]
+        y = processed_mean[i]['local sgd'][0]#[entry[1] / 60 for entry in data[i]['local sgd']]
+        ax[3].plot(x, y)
+        std = processed_std[i]['local sgd'][0]
+        ax[3].fill_between(x, y - std, y + std, alpha=0.2, label='_nolegend_')
+
+    for i,line in enumerate(ax[3].get_lines()):
+        # line.set_marker(markers[i])
+        # line.set_markevery(50)
+        # line.set_color(colors[i])
+        line.set_markersize(5)
+
+    ax[3].set_ylabel('GPU usage (minutes)')
+    ax[3].set_xlabel(xlabel_list[idx])#ax[3].set_xlabel('time (seconds)')
+    ax[3].legend(legends)
+    # ax[3].set_yscale('log')
+    ax[3].grid(True,which="both")
+
+    plt.tight_layout()
+
+    # Save the figure as a PDF
+    plt.savefig("./figures/"+output_filenames_list[idx]+" ".join(criterias[0])+".pdf", format='pdf', bbox_inches='tight')
+    plt.show()
