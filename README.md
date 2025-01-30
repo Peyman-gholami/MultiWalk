@@ -1,4 +1,4 @@
-# Tales of Two Learning Algorithms: Asynchronous Gossip and Multi-Walk
+# A Tale of Two Learning Algorithms: Multiple Stream Random Walk and Asynchronous Gossip
 
 
 
