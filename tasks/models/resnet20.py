@@ -276,3 +276,29 @@ class ResNet_cifar(ResNetBase):
 
 def ResNet20(use_batchnorm=True):
     return ResNet_cifar("cifar10", 20)
+
+
+def get_resnet_separation_point(model: nn.Module) -> int:
+    """
+    Given a ResNet model with an attribute `fc` (nn.Linear), return the separation point index
+    in the flattened parameter list such that separation_point + 1 is the index of the first
+    parameter belonging to `self.fc`.
+
+    This uses parameter identity rather than names, so it works regardless of wrappers that
+    may alter parameter names (e.g., DataParallel).
+    """
+    if not hasattr(model, "fc") or not isinstance(model.fc, nn.Linear):
+        raise ValueError("Model does not have an `fc` attribute of type nn.Linear")
+
+    fc_param_ids = {id(p) for p in model.fc.parameters()}
+    first_fc_idx = None
+    for idx, p in enumerate(model.parameters()):
+        if id(p) in fc_param_ids:
+            first_fc_idx = idx
+            break
+
+    if first_fc_idx is None:
+        raise ValueError("Could not locate parameters of `fc` within model.parameters() order")
+
+    separation_point = max(0, first_fc_idx - 1)
+    return separation_point

@@ -154,6 +154,12 @@ class DecentralizedTraining:
         return model
 
 
+    def get_model_separation_point(self, model):
+        if self.config["model_name"] == "ResNet20":
+            from tasks.models.resnet20 import get_resnet_separation_point
+            return get_resnet_separation_point(model)
+        return None
+
 
 
 
@@ -834,7 +840,7 @@ class SplitRandomWalk:
         else:
             return current_node
 
-    def rw_computation(self, rank, queue, queue_op_id, comm_process_started, shared_state=None):
+    def rw_computation(self, rank, queue, queue_op_id, comm_process_started, separation_point, shared_state=None):
         torch.manual_seed(self.parent.config["seed"] + rank )
         np.random.seed(self.parent.config["seed"] + rank )
 
@@ -878,7 +884,6 @@ class SplitRandomWalk:
             logging.info(f"[{group_name}] Rank {rank} performing training in compute")
 
             # Assemble full parameters from two queues based on parity and separation_point
-            separation_point = self.parent.config["separation_point"]
             num_params = len(parameters)
             assert 0 <= separation_point < num_params - 1, "Invalid separation_point"
 
@@ -951,7 +956,7 @@ class SplitRandomWalk:
             yield current_node
 
 
-    def rw_communication(self, rank, rw, queue, queue_op_id, comm_process_started, shared_arrays=None, shared_array_index=None, eval_shared_arrays=None, last_part_indices=None):
+    def rw_communication(self, rank, rw, queue, queue_op_id, comm_process_started, separation_point, shared_arrays=None, shared_array_index=None, eval_shared_arrays=None, last_part_indices=None):
         torch.manual_seed(self.parent.config["seed"] + rank + rw)
         np.random.seed(self.parent.config["seed"] + rank + rw)
         group_name = self.parent.group_names[rw]
@@ -967,7 +972,6 @@ class SplitRandomWalk:
             #Move model parameters to GPU
             parameters = [param.to(device) for param in model.parameters()]
         # Determine which part this RW handles
-        separation_point = self.parent.config["separation_point"]
         num_params = len(parameters)
         assert 0 <= separation_point < num_params - 1, "Invalid separation_point"
         is_representation = (rw % 2 == 0)
@@ -1097,7 +1101,7 @@ class SplitRandomWalk:
     def run(self, rank):
         model = self.parent.create_model()
         shared_arrays = []
-        separation_point = self.parent.config["separation_point"]
+        separation_point = self.parent.get_model_separation_point(model)
         num_params = len(list(model.parameters()))
         assert 0 <= separation_point < num_params - 1, "Invalid separation_point"
         rep_indices = list(range(0, separation_point + 1))
@@ -1146,15 +1150,15 @@ class SplitRandomWalk:
         comm_processes = []
         if rank == 0:
             compute_process = Process(target=self.rw_computation,
-                                      args=(rank, queue, queue_op_id, comm_process_started, shared_state))
+                                      args=(rank, queue, queue_op_id, comm_process_started, separation_point, shared_state))
         else:
-            compute_process = Process(target=self.rw_computation, args=(rank, queue, queue_op_id, comm_process_started))
+            compute_process = Process(target=self.rw_computation, args=(rank, queue, queue_op_id, comm_process_started, separation_point))
 
         compute_process.start()
 
         for rw in range(len(self.parent.group_names)):
             if rank == 0:
-                comm_process = Process(target=self.rw_communication, args=(rank, rw, queue, queue_op_id, comm_process_started, shared_arrays, None, eval_shared_arrays, last_part_indices,))
+                comm_process = Process(target=self.rw_communication, args=(rank, rw, queue, queue_op_id, comm_process_started, separation_point, shared_arrays, None, eval_shared_arrays, last_part_indices,))
             else:
                 comm_process = Process(target=self.rw_communication,
                                        args=(rank, rw, queue, queue_op_id, comm_process_started))
