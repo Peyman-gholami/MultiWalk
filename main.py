@@ -95,6 +95,7 @@ if __name__ == "__main__":
         "seed": args.seed,
         "task": args.task,
         "model_name": args.model_name,
+        "split_random_walk_ratio": args.split_random_walk_ratio,
         "data_split_method": args.data_split_method,
         "non_iid_alpha": args.non_iid_alpha,
         "batch_size": args.batch_size,
