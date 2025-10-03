@@ -203,8 +203,8 @@ class DecentralizedTraining:
             logger.log_end("evaluation", {"test loss": test_loss, "train loss": train_loss})
 
 
-    def local_sgd(self, task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time):
-        for _ in range(self.tau):
+    def local_sgd(self, task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time, split_random_walk_ratio=1):
+        for _ in range(self.tau * split_random_walk_ratio):
             epoch, batch = next(batch_data_gen)
             last_loss, gradients, state = task.loss_and_gradient(parameters, state, batch)
             base_optimizer.step(
@@ -921,11 +921,11 @@ class SplitRandomWalk:
                     param_data = np.frombuffer(queue_param.get_obj(), dtype=np.float32).reshape(param.shape)
                     param.data = torch.from_numpy(param_data).to(device)
 
-
+            split_random_walk_ratio = self.parent.config["split_random_walk_ratio"] if is_representation else 1
             logging.info(f"[{group_name}] Rank {rank} performing training")
             logger.log_start("local sgd")
             epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen,
-                                          (time.time() - start_time))
+                                          (time.time() - start_time), split_random_walk_ratio)
 
             iteration += self.parent.tau
             logger.log_end("local sgd", {"rank": rank, "rw": group_name, "iteration": self.parent.tau, "epoch": epoch})
