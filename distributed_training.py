@@ -1161,7 +1161,7 @@ class SplitRandomWalk:
                 comm_process = Process(target=self.rw_communication, args=(rank, rw, queue, queue_op_id, comm_process_started, separation_point, shared_arrays, None, eval_shared_arrays, last_part_indices,))
             else:
                 comm_process = Process(target=self.rw_communication,
-                                       args=(rank, rw, queue, queue_op_id, comm_process_started))
+                                       args=(rank, rw, queue, queue_op_id, comm_process_started, separation_point))
             comm_process.start()
             comm_processes.append(comm_process)
 
