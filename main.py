@@ -56,7 +56,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for asynchronous gossip')
     parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk'], required=True,
                         help='Algorithm to run')
-    parser.add_argument('--split_random_walk_ratio', type=float, default=1, help='Split random walk ratio')
+    parser.add_argument('--split_random_walk_ratio', type=int, default=1, help='Split random walk ratio')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--task', type=str, choices=['Cifar', 'MNLI'], default="Cifar", help='Task name')
     parser.add_argument('--model_name', type=str, default="ResNet20", help='Model name')
