@@ -81,7 +81,7 @@ if __name__ == "__main__":
     master_address = MASTER_ADDR
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
-    specific_keys = ['graph', 'train_time', 'learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer']  # Replace these with your specific keys
+    specific_keys = ['graph', 'train_time', 'learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio']  # Replace these with your specific keys
     log_name = f'full_dup_size={size}_rank={rank}_rw={len(args.group_names)}' + '_'.join(
         [f'{key}={value}' for key, value in vars(args).items() if key in specific_keys])
     if args.algorithm == 'async_gossip':
