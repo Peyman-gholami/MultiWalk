@@ -927,7 +927,7 @@ class SplitRandomWalk:
             epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen,
                                           (time.time() - start_time), split_random_walk_ratio)
 
-            iteration += self.parent.tau
+            iteration += self.parent.tau * split_random_walk_ratio
             logger.log_end("local sgd", {"rank": rank, "rw": group_name, "iteration": self.parent.tau, "epoch": epoch})
 
             if rank == 0:
