@@ -928,7 +928,7 @@ class SplitRandomWalk:
                                           (time.time() - start_time), split_random_walk_ratio)
 
             iteration += self.parent.tau * split_random_walk_ratio
-            logger.log_end("local sgd", {"rank": rank, "rw": group_name, "iteration": self.parent.tau, "epoch": epoch})
+            logger.log_end("local sgd", {"rank": rank, "rw": group_name, "iteration": self.parent.tau * split_random_walk_ratio, "epoch": epoch})
 
             if rank == 0:
                 for st, shared_array in zip(state, shared_state):
