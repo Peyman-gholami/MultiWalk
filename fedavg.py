@@ -39,8 +39,7 @@ class FedAVG:
         """Server process (rank 0) - handles aggregation and client coordination"""
         torch.manual_seed(self.parent.config["seed"])
         np.random.seed(self.parent.config["seed"])
-        comm_device = 'cpu'
-        device = torch.device(f'cuda:{self.parent.local_rank}' if torch.cuda.is_available() else 'cpu')
+        device = 'cpu'
         logger = EventLogger(log_file_name=self.parent.log_name)
         
         # Initialize global model
@@ -182,7 +181,7 @@ class FedAVG:
         
         while True:
             # Wait for server notification
-            notification = torch.tensor(-1, dtype=torch.int32).to(device)
+            notification = torch.tensor(-1, dtype=torch.int32).to(comm_device)
             dist.recv(tensor=notification, src=0)
             logging.info(f"[FedAVG Client {rank}] notification received!")
             dist.barrier()
