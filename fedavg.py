@@ -77,11 +77,13 @@ class FedAVG:
             
             
             for client_rank in participants:
+                logging.info(f"[FedAVG Server] Round {round_num}, model is to be sent to rank {client_rank}!")
                 logger.log_start("communication")
                 buffer = pack(global_parameters)
                 dist.send(tensor=buffer, dst=client_rank)
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"round": round_num, "from": rank, "to": client_rank, "bytes_sent": bytes_sent})
+                logging.info(f"[FedAVG Server] Round {round_num}, model was sent to rank {client_rank}!")
             
             
 
@@ -191,9 +193,11 @@ class FedAVG:
             elif notification.item() == 1:  # Start training
                 
                 # Receive global model from server
+                logging.info(f"[FedAVG Client {rank}] receiveing the model!")
                 buffer = torch.zeros_like(pack(parameters))
                 dist.recv(tensor=buffer, src=0)
                 global_params = unpack(buffer, [p.shape for p in parameters])
+                logging.info(f"[FedAVG Client {rank}] received the model!")
                 
                 
 
