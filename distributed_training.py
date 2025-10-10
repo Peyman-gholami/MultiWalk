@@ -298,7 +298,7 @@ class RandomWalk:
 
         while time.time() < end_time:
             rw = None
-            while True:
+            while time.time() < end_time:
                 for rw_id, rw_op_id in enumerate(queue_op_id):
                     if rw_op_id.value == 1:
                         rw = rw_id
@@ -871,7 +871,7 @@ class SplitRandomWalk:
 
         while time.time() < end_time:
             rw = None
-            while True:
+            while time.time() < end_time:
                 for rw_id, rw_op_id in enumerate(queue_op_id):
                     if rw_op_id.value == 1:
                         rw = rw_id
