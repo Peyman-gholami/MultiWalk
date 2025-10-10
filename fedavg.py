@@ -74,16 +74,16 @@ class FedAVG:
                     dist.send(tensor=notification, dst=client_rank)
                     logging.info(f"[FedAVG Server] Round {round_num}, notifications sent to rank {client_rank}!")
             logging.info(f"[FedAVG Server] Round {round_num}, all notifications sent!")
-            dist.barrier()
+            
             
             for client_rank in participants:
                 logger.log_start("communication")
                 buffer = pack(global_parameters)
-                dist.isend(tensor=buffer, dst=client_rank)
+                dist.send(tensor=buffer, dst=client_rank)
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"round": round_num, "from": rank, "to": client_rank, "bytes_sent": bytes_sent})
             
-            dist.barrier()
+            
 
             # Collect updates from participating clients
             client_updates = {}
@@ -184,12 +184,10 @@ class FedAVG:
             notification = torch.tensor(-1, dtype=torch.int32).to(comm_device)
             dist.recv(tensor=notification, src=0)
             logging.info(f"[FedAVG Client {rank}] notification received!")
-            dist.barrier()
             if notification.item() == -10:  # End signal
                 break
             elif notification.item() == 0:  # End training
-                dist.barrier()
-                dist.barrier() 
+                 
             elif notification.item() == 1:  # Start training
                 
                 # Receive global model from server
@@ -197,7 +195,7 @@ class FedAVG:
                 dist.recv(tensor=buffer, src=0)
                 global_params = unpack(buffer, [p.shape for p in parameters])
                 
-                dist.barrier()
+                
 
                 # Update local parameters with global model
                 for local_param, global_param in zip(parameters, global_params):
@@ -220,7 +218,8 @@ class FedAVG:
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"from": rank, "to": 0, "bytes_sent": bytes_sent})
                 dist.barrier()
-
+        
+        dist.barrier()
         dist.destroy_process_group()
         logging.info(f"[FedAVG Client {rank}] Finished")
     
