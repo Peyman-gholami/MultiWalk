@@ -39,7 +39,7 @@ class FedAVG:
         """Server process (rank 0) - handles aggregation and client coordination"""
         torch.manual_seed(self.parent.config["seed"])
         np.random.seed(self.parent.config["seed"])
-        
+        comm_device = 'cpu'
         device = torch.device(f'cuda:{self.parent.local_rank}' if torch.cuda.is_available() else 'cpu')
         logger = EventLogger(log_file_name=self.parent.log_name)
         
@@ -67,10 +67,10 @@ class FedAVG:
             # Send global model to all participating clients
             for client_rank in range(1, self.parent.size):
                 if client_rank not in participants:
-                    notification = torch.tensor(0, dtype=torch.int32).to(device)  # 0 = end training
+                    notification = torch.tensor(0, dtype=torch.int32).to(comm_device)  # 0 = end training
                     dist.isend(tensor=notification, dst=client_rank)
                 else:
-                    notification = torch.tensor(1, dtype=torch.int32).to(device)  # 1 = start training
+                    notification = torch.tensor(1, dtype=torch.int32).to(comm_device)  # 1 = start training
                     dist.isend(tensor=notification, dst=client_rank)
             logging.info(f"[FedAVG Server] Round {round_num}, all notifications sent!")
             dist.barrier()
@@ -156,7 +156,7 @@ class FedAVG:
         """Client process (rank > 0) - performs local training"""
         torch.manual_seed(self.parent.config["seed"] + rank)
         np.random.seed(self.parent.config["seed"] + rank)
-        
+        comm_device = 'cpu'
         device = torch.device(f'cuda:{self.parent.local_rank}' if torch.cuda.is_available() else 'cpu')
         logger = EventLogger(log_file_name=self.parent.log_name)
         
@@ -180,7 +180,7 @@ class FedAVG:
         
         while True:
             # Wait for server notification
-            notification = torch.tensor(-1, dtype=torch.int32).to(device)
+            notification = torch.tensor(-1, dtype=torch.int32).to(comm_device)
             dist.recv(tensor=notification, src=0)
             logging.info(f"[FedAVG Client {rank}] notification received!")
             dist.barrier()
