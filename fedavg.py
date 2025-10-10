@@ -180,6 +180,8 @@ class FedAVG:
         backend = 'gloo'
         self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[0], self.parent.group_names[0])
         
+        start_time = time.time()
+        
         # Get local data size for weighted aggregation
         local_data_size = len(task.data)
         
