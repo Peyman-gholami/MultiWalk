@@ -213,7 +213,6 @@ class FedAVG:
                 logger.log_start("local sgd")
                 epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - start_time))
                 logger.log_end("local sgd", {"rank": rank, "iteration": self.parent.tau, "epoch": epoch})
-                iteration += self.parent.tau
                 
                 # Send data size to server
                 data_size_tensor = torch.tensor(local_data_size, dtype=torch.int32).to(comm_device)
