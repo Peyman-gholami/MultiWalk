@@ -169,6 +169,8 @@ class FedAVG:
         base_optimizer = configure_base_optimizer(self.parent.config)
         base_optimizer_state = base_optimizer.init(parameters)
         
+        
+
         batch_data_gen = task.data.iterator(
             batch_size=self.parent.config["batch_size"],
             shuffle=True,
@@ -194,7 +196,7 @@ class FedAVG:
                 
                 # Receive global model from server
                 logging.info(f"[FedAVG Client {rank}] receiveing the model!")
-                buffer = torch.zeros_like(pack(parameters))
+                buffer = torch.zeros_like(pack(parameters), device=comm_device)
                 dist.recv(tensor=buffer, src=0)
                 global_params = unpack(buffer, [p.shape for p in parameters])
                 logging.info(f"[FedAVG Client {rank}] received the model!")
