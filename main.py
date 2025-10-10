@@ -54,9 +54,10 @@ if __name__ == "__main__":
     parser.add_argument('--ports', type=int, nargs='+', default=[29500, 29501], help='List of ports for the groups')
     parser.add_argument('--group_names', type=str, nargs='+', default=['group1', 'group2'], help='List of group names')
     parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for asynchronous gossip')
-    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk'], required=True,
+    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk', 'fedavg'], required=True,
                         help='Algorithm to run')
     parser.add_argument('--split_random_walk_ratio', type=int, default=1, help='Split random walk ratio')
+    parser.add_argument('--participation_rate', type=float, default=0.1, help='Fraction of clients participating in each FedAVG round')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--task', type=str, choices=['Cifar', 'MNLI'], default="Cifar", help='Task name')
     parser.add_argument('--model_name', type=str, default="ResNet20", help='Model name')
@@ -96,6 +97,7 @@ if __name__ == "__main__":
         "task": args.task,
         "model_name": args.model_name,
         "split_random_walk_ratio": args.split_random_walk_ratio,
+        "participation_rate": args.participation_rate,
         "data_split_method": args.data_split_method,
         "non_iid_alpha": args.non_iid_alpha,
         "batch_size": args.batch_size,

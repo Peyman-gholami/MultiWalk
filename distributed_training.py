@@ -19,13 +19,14 @@ num_bytes
 from utils.tools import (
     load_from_shared
 )
+from fedavg import FedAVG
 
 
 
 # set_start_method('spawn', force=True)
 
-logging.basicConfig(level=logging.CRITICAL)
-# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.CRITICAL)
+logging.basicConfig(level=logging.INFO)
 
 
 class EventLogger:
@@ -228,6 +229,9 @@ class DecentralizedTraining:
         elif self.algorithm == 'split_random_walk':
             split_random_walk = SplitRandomWalk(self)
             split_random_walk.run(rank)
+        elif self.algorithm == 'fedavg':
+            fedavg = FedAVG(self)
+            fedavg.run(rank)
 
 class RandomWalk:
     def __init__(self, parent):
