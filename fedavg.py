@@ -101,7 +101,7 @@ class FedAVG:
                 
             
             for req in data_size_reqs:
-                req.wait()
+                req[0].wait()
             
             for req, client_rank in data_size_reqs:
                 client_data_sizes[client_rank] = req.tensor().item()
@@ -113,7 +113,7 @@ class FedAVG:
                 model_update_reqs.append((req, client_rank))
 
             for req in model_update_reqs:
-                req.wait()
+                req[0].wait()
             
             for req, client_rank in model_update_reqs:
                 client_updates[client_rank] = unpack(req.tensor(), [p.shape for p in global_parameters])
