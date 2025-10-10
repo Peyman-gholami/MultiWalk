@@ -51,7 +51,7 @@ class FedAVG:
         
         # Initialize communication
         backend = 'gloo'  # Use gloo for CPU communication
-        self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[0], 'fedavg_server')
+        self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[0], self.parent.group_names[0])
         
         round_num = 0
         start_time = time.time()
@@ -72,6 +72,7 @@ class FedAVG:
                 else:
                     notification = torch.tensor(1, dtype=torch.int32).to(device)  # 1 = start training
                     dist.isend(tensor=notification, dst=client_rank)
+            logging.info(f"[FedAVG Server] Round {round_num}, all notifications sent!")
             dist.barrier()
             
             for client_rank in participants:
@@ -172,7 +173,7 @@ class FedAVG:
         
         # Initialize communication
         backend = 'gloo'
-        self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[0], 'fedavg_client')
+        self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[0], self.parent.group_names[0])
         
         # Get local data size for weighted aggregation
         local_data_size = len(task.data)
@@ -181,6 +182,7 @@ class FedAVG:
             # Wait for server notification
             notification = torch.tensor(-1, dtype=torch.int32).to(device)
             dist.recv(tensor=notification, src=0)
+            logging.info(f"[FedAVG Client {rank}] notification received!")
             dist.barrier()
             if notification.item() == -10:  # End signal
                 break
