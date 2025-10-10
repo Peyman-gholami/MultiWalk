@@ -181,7 +181,7 @@ class FedAVG:
         self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[0], self.parent.group_names[0])
         
         start_time = time.time()
-        
+
         # Get local data size for weighted aggregation
         local_data_size = len(task.data)
         
@@ -216,12 +216,12 @@ class FedAVG:
                 iteration += self.parent.tau
                 
                 # Send data size to server
-                data_size_tensor = torch.tensor(local_data_size, dtype=torch.int32).to(device)
+                data_size_tensor = torch.tensor(local_data_size, dtype=torch.int32).to(comm_device)
                 dist.send(tensor=data_size_tensor, dst=0)
                 
                 # Send updated model to server
                 logger.log_start("communication")
-                buffer = pack(parameters)
+                buffer = pack(parameters).to(comm_device)
                 dist.send(tensor=buffer, dst=0)
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"from": rank, "to": 0, "bytes_sent": bytes_sent})
