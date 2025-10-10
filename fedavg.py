@@ -15,7 +15,8 @@ from utils.communication import (
 from utils.tools import (
     load_from_shared
 )
-from distributed_training import EventLogger
+from logger import EventLogger
+
 
 
 class FedAVG:
