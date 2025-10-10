@@ -187,7 +187,7 @@ class FedAVG:
             if notification.item() == -10:  # End signal
                 break
             elif notification.item() == 0:  # End training
-                 
+                 dist.barrier()
             elif notification.item() == 1:  # Start training
                 
                 # Receive global model from server
