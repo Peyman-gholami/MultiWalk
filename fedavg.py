@@ -143,8 +143,8 @@ class FedAVG:
             total_data_size = sum(client_data_sizes.values())
             
             # Initialize aggregated parameters
-            for i, param in enumerate(global_parameters):
-                param.data.zero_()
+            # for i, param in enumerate(global_parameters):
+            #     param.data.zero_()
             
             # Weighted aggregation
             for client_rank, update in client_updates.items():
@@ -239,9 +239,10 @@ class FedAVG:
                 data_size_tensor = torch.tensor(local_data_size, dtype=torch.int32).to(comm_device)
                 dist.send(tensor=data_size_tensor, dst=0)
                 
+                dif_parameters = [param - global_param for param, global_param in zip(parameters, global_params)]
                 # Send updated model to server
                 logger.log_start("communication")
-                buffer = pack(parameters).to(comm_device)
+                buffer = pack(dif_parameters).to(comm_device)
                 dist.send(tensor=buffer, dst=0)
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"from": rank, "to": 0, "bytes_sent": bytes_sent})
