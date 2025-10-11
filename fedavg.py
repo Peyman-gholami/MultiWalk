@@ -138,6 +138,31 @@ class FedAVG:
                 # Now that req.wait() is done, the 'buffer' is guaranteed to be filled.
                 # Unpack the data directly from the buffer.
                 client_updates[client_rank] = unpack(buffer, [p.shape for p in global_parameters])
+
+            
+            client_states = {}
+            # List to store request objects and their corresponding buffers
+            model_state_info = []
+
+            # --- Step 1: Initiate all non-blocking receives ---
+            for client_rank in participants:
+                # Create a unique buffer to receive the packed model update from this client
+                buffer = torch.zeros_like(pack(global_state))
+
+                # Start the non-blocking receive operation
+                req = dist.irecv(tensor=buffer, src=client_rank)
+
+                # Store the request handle, the buffer it will fill, and the client's rank
+                model_state_info.append((req, buffer, client_rank))
+
+            # --- Step 2: Wait for each receive to complete and process the data ---
+            for req, buffer, client_rank in model_state_info:
+                # This blocks until the data from this specific client has been received
+                req.wait()
+
+                # Now that req.wait() is done, the 'buffer' is guaranteed to be filled.
+                # Unpack the data directly from the buffer.
+                client_states[client_rank] = unpack(buffer, [s.shape for s in global_state])
             
             # Aggregate updates using weighted average
             total_data_size = sum(client_data_sizes.values())
@@ -152,6 +177,15 @@ class FedAVG:
                 for global_param, client_param in zip(global_parameters, update):
                     global_param.data += weight * client_param.to(device)
             
+            # Initialize aggregated parameters
+            for i, param in enumerate(global_state):
+                state.data.zero_()
+            
+            for client_rank, state in client_states.items():
+                weight = client_data_sizes[client_rank] / total_data_size
+                for global_st, client_st in zip(global_state, state):
+                    global_st.data += weight * client_st.to(device)
+
             # Update shared arrays
             for param, shared_array in zip(global_parameters, shared_arrays):
                 np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
@@ -246,6 +280,13 @@ class FedAVG:
                 dist.send(tensor=buffer, dst=0)
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"from": rank, "to": 0, "bytes_sent": bytes_sent})
+                dist.barrier()
+
+                
+                buffer = pack(state)
+                dist.send(tensor=buffer, dst=0)
+                bytes_sent = num_bytes(buffer)
+
                 dist.barrier()
         
         dist.barrier()
