@@ -178,7 +178,7 @@ class FedAVG:
                     global_param.data += weight * client_param.to(device)
             
             # Initialize aggregated parameters
-            for i, param in enumerate(global_state):
+            for i, state in enumerate(global_state):
                 state.data.zero_()
             
             for client_rank, state in client_states.items():
