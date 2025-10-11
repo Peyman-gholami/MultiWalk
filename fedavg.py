@@ -280,7 +280,7 @@ class FedAVG:
                 dist.send(tensor=buffer, dst=0)
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"from": rank, "to": 0, "bytes_sent": bytes_sent})
-                dist.barrier()
+                
 
                 
                 buffer = pack(state).to(comm_device)
