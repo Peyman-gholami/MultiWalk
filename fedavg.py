@@ -283,7 +283,7 @@ class FedAVG:
                 dist.barrier()
 
                 
-                buffer = pack(state)
+                buffer = pack(state).to(comm_device)
                 dist.send(tensor=buffer, dst=0)
                 bytes_sent = num_bytes(buffer)
 
