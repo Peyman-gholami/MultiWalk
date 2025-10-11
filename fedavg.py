@@ -239,10 +239,10 @@ class FedAVG:
                 data_size_tensor = torch.tensor(local_data_size, dtype=torch.int32).to(comm_device)
                 dist.send(tensor=data_size_tensor, dst=0)
                 
-                dif_parameters = [param - global_param for param, global_param in zip(parameters, global_params)]
+                dif_parameters = [param.to(comm_device) - global_param.to(comm_device) for param, global_param in zip(parameters, global_params)]
                 # Send updated model to server
                 logger.log_start("communication")
-                buffer = pack(dif_parameters).to(comm_device)
+                buffer = pack(dif_parameters)
                 dist.send(tensor=buffer, dst=0)
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"from": rank, "to": 0, "bytes_sent": bytes_sent})
