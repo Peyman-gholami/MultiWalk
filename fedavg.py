@@ -177,14 +177,10 @@ class FedAVG:
                 for global_param, client_param in zip(global_parameters, update):
                     global_param.data += weight * client_param.to(device)
             
-            # Initialize aggregated parameters
-            for i, state in enumerate(global_state):
-                state.data.zero_()
             
             for client_rank, state in client_states.items():
-                weight = client_data_sizes[client_rank] / total_data_size
                 for global_st, client_st in zip(global_state, state):
-                    global_st.data += weight * client_st.to(device)
+                    global_st.data = client_st.to(device)
 
             # Update shared arrays
             for param, shared_array in zip(global_parameters, shared_arrays):
