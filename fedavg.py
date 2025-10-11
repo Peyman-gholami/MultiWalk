@@ -87,36 +87,57 @@ class FedAVG:
             
             
 
-            # Collect updates from participating clients
-            client_updates = {}
-            client_data_sizes = {}
-            data_size_reqs = []
-            model_update_reqs = []
+            # Dictionary to store the final results
+            client_data_sizes = {} 
+            # List to store request objects and the tensors they will fill
+            data_size_info = []
+
+            # 1. Initiate all non-blocking receives
             for client_rank in participants:
-                
-                # Receive data size information
+                # Create a buffer tensor for this specific client's data
                 data_size_tensor = torch.tensor(0, dtype=torch.int32).to(device)
-                req = dist.irecv(tensor=data_size_tensor, src=client_rank)
-                data_size_reqs.append((req, client_rank))
                 
-            
-            for req in data_size_reqs:
-                req[0].wait()
-            
-            for req, client_rank in data_size_reqs:
-                client_data_sizes[client_rank] = req.tensor().item()
-            
+                # Start the non-blocking receive operation
+                req = dist.irecv(tensor=data_size_tensor, src=client_rank)
+                
+                # Store the request handle AND the tensor it will populate
+                data_size_info.append((req, data_size_tensor, client_rank))
 
+            # 2. Wait for each operation to complete and then process the result
+            for req, tensor, client_rank in data_size_info:
+                # This blocks until the data for this specific request has arrived
+                req.wait() 
+                
+                # Now that wait() has returned, the 'tensor' is filled with the received data.
+                # Access the value directly from the tensor.
+                client_data_sizes[client_rank] = tensor.item()
+
+            
+            
+# Dictionary to store the final unpacked model updates
+            client_updates = {}
+            # List to store request objects and their corresponding buffers
+            model_update_info = []
+
+            # --- Step 1: Initiate all non-blocking receives ---
             for client_rank in participants:
+                # Create a unique buffer to receive the packed model update from this client
                 buffer = torch.zeros_like(pack(global_parameters))
-                req = dist.irecv(tensor=buffer, src=client_rank)
-                model_update_reqs.append((req, client_rank))
 
-            for req in model_update_reqs:
-                req[0].wait()
-            
-            for req, client_rank in model_update_reqs:
-                client_updates[client_rank] = unpack(req.tensor(), [p.shape for p in global_parameters])
+                # Start the non-blocking receive operation
+                req = dist.irecv(tensor=buffer, src=client_rank)
+
+                # Store the request handle, the buffer it will fill, and the client's rank
+                model_update_info.append((req, buffer, client_rank))
+
+            # --- Step 2: Wait for each receive to complete and process the data ---
+            for req, buffer, client_rank in model_update_info:
+                # This blocks until the data from this specific client has been received
+                req.wait()
+
+                # Now that req.wait() is done, the 'buffer' is guaranteed to be filled.
+                # Unpack the data directly from the buffer.
+                client_updates[client_rank] = unpack(buffer, [p.shape for p in global_parameters])
             
             # Aggregate updates using weighted average
             total_data_size = sum(client_data_sizes.values())
