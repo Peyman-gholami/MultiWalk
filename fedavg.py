@@ -64,15 +64,18 @@ class FedAVG:
             logging.info(f"[FedAVG Server] Round {round_num}, Participants: {participants}")
             
             # Send global model to all participating clients
+            notifs = []
             for client_rank in range(1, self.parent.size):
                 if client_rank not in participants:
                     notification = torch.tensor(0, dtype=torch.int32).to(device)  # 0 = end training
-                    dist.send(tensor=notification, dst=client_rank)
+                    notifs.append(dist.isend(tensor=notification, dst=client_rank))
                     logging.info(f"[FedAVG Server] Round {round_num}, notifications sent to rank {client_rank}!")
                 else:
                     notification = torch.tensor(1, dtype=torch.int32).to(device)  # 1 = start training
-                    dist.send(tensor=notification, dst=client_rank)
+                    notifs.append(dist.isend(tensor=notification, dst=client_rank))
                     logging.info(f"[FedAVG Server] Round {round_num}, notifications sent to rank {client_rank}!")
+            for item in notifs:
+                item.wait()
             logging.info(f"[FedAVG Server] Round {round_num}, all notifications sent!")
             
             
