@@ -78,17 +78,18 @@ class FedAVG:
                 item.wait()
             logging.info(f"[FedAVG Server] Round {round_num}, all notifications sent!")
             
-            
+            sent_modesl_proc =[]
             for client_rank in participants:
                 logging.info(f"[FedAVG Server] Round {round_num}, model is to be sent to rank {client_rank}!")
                 logger.log_start("communication")
                 buffer = pack(global_parameters)
-                dist.send(tensor=buffer, dst=client_rank)
+                sent_modesl_proc.append(dist.isend(tensor=buffer, dst=client_rank))
                 bytes_sent = num_bytes(buffer)
                 logger.log_end("communication", {"round": round_num, "from": rank, "to": client_rank, "bytes_sent": bytes_sent})
                 logging.info(f"[FedAVG Server] Round {round_num}, model was sent to rank {client_rank}!")
             
-            
+            for item in sent_modesl_proc:
+                item.wait()
 
             # Dictionary to store the final results
             client_data_sizes = {} 
