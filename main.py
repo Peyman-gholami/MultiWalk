@@ -74,6 +74,8 @@ if __name__ == "__main__":
                         help='Fraction of data to use for training and evaluation')
     parser.add_argument('--no_test_set_eval', action='store_true',
                         help='If provided, set no_test_set_eval to True. Default is False.')
+    parser.add_argument('--no_lr_schedule', action='store_true',
+                        help='If provided, set no_lr_schedule to True. Default is False.')
 
     args = parser.parse_args()
 
@@ -104,7 +106,7 @@ if __name__ == "__main__":
         "base_optimizer": args.base_optimizer,
         "learning_rate": args.learning_rate,
         "lr_warmup_time": args.lr_warmup_time,
-        "lr_schedule_milestones": [(args.train_time*60*.75, .1), (args.train_time*60*.9, .1)],
+        "lr_schedule_milestones": [] if args.no_lr_schedule else [(args.train_time*60*.75, .1), (args.train_time*60*.9, .1)],
         "momentum": args.momentum,
         "weight_decay": args.weight_decay
     }
