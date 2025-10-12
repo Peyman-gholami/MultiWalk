@@ -113,8 +113,6 @@ class FedAVG:
         training_end_time = training_start_time + self.parent.train_time * 60
 
         while time.time() < training_end_time:
-            event_logger.log_start("fedavg_round")
-
             # Select participating clients
             participating_clients = self.select_participating_clients(current_round, self.parent.size-1)
             logging.info(f"[FedAVG Server] Round {current_round}, Participants: {participating_clients}")
@@ -155,8 +153,6 @@ class FedAVG:
                 np.copyto(np.frombuffer(shared_state_array.get_obj(), dtype=np.float32).reshape(state_param.shape),
                          state_param.cpu().detach().numpy())
 
-            # Need to define total_dataset_size or remove it from the log
-            event_logger.log_end("fedavg_round", {"round": current_round, "participants": len(participating_clients)})
             current_round += 1
             dist.barrier()
 
@@ -222,8 +218,8 @@ class FedAVG:
 
                 # Perform local SGD
                 event_logger.log_start("local sgd")
-                # Corrected the start_time variable name and passed event_logger
-                epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - training_start_time), event_logger)
+                # Corrected the start_time variable name 
+                epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - training_start_time))
                 event_logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
 
 
