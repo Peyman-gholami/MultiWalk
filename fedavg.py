@@ -186,7 +186,7 @@ class FedAVG:
         
         
 
-        batch_data_iterator = training_task.data.iterator(
+        batch_data_gen = training_task.data.iterator(
             batch_size=self.parent.config["batch_size"],
             shuffle=True,
         )
@@ -221,7 +221,7 @@ class FedAVG:
                 
                 # Perform local SGD
                 logger.log_start("local sgd")
-                epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - start_time))
+                epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - start_time))
                 logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
                 
                 
