@@ -171,7 +171,7 @@ class FedAVG:
         logging.info(f"[FedAVG Server] Finished {current_round} rounds")
     
     def client_process(self, client_rank,):
-        """Client process (rank > 0) - performs local training"""
+        """Client process (client_rank > 0) - performs local training"""
         torch.manual_seed(self.parent.config["seed"] + client_rank)
         np.random.seed(self.parent.config["seed"] + client_rank)
         comm_device = 'cpu'
@@ -201,7 +201,7 @@ class FedAVG:
             # Wait for server notification
             notification = torch.tensor(-1, dtype=torch.int32).to(comm_device)
             dist.recv(tensor=notification, src=0)
-            logging.info(f"[FedAVG Client {rank}] notification received!")
+            logging.info(f"[FedAVG Client {client_rank}] notification received!")
             if notification.item() == -10:  # End signal
                 break
             elif notification.item() == 0:  # End training
@@ -209,11 +209,11 @@ class FedAVG:
             elif notification.item() in [1,2]:  # Start training (no state sending)
                 
                 # Receive global model from server
-                logging.info(f"[FedAVG Client {rank}] receiveing the model!")
+                logging.info(f"[FedAVG Client {client_rank}] receiveing the model!")
                 buffer = torch.zeros_like(pack(parameters), device=comm_device)
                 dist.recv(tensor=buffer, src=0)
                 global_params = unpack(buffer, [p.shape for p in parameters])
-                logging.info(f"[FedAVG Client {rank}] received the model!")
+                logging.info(f"[FedAVG Client {client_rank}] received the model!")
                 
                 # Update local parameters with global model
                 for local_param, global_param in zip(parameters, global_params):
@@ -222,7 +222,7 @@ class FedAVG:
                 # Perform local SGD
                 logger.log_start("local sgd")
                 epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - start_time))
-                logger.log_end("local sgd", {"rank": rank, "iteration": self.parent.tau, "epoch": epoch})
+                logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
                 
                 # Send data size to server
                 data_size_tensor = torch.tensor(local_data_size, dtype=torch.int32).to(comm_device)
@@ -234,21 +234,21 @@ class FedAVG:
                 buffer = pack(dif_parameters)
                 dist.send(tensor=buffer, dst=0)
                 bytes_sent = num_bytes(buffer)
-                logger.log_end("communication", {"from": rank, "to": 0, "bytes_sent": bytes_sent})
+                logger.log_end("communication", {"from": client_rank, "to": 0, "bytes_sent": bytes_sent})
 
                 if notification.item() == 2:  # Start training + send state
                     # Send state to server (only this client sends state)
-                    logging.info(f"[FedAVG Client {rank}] sending state to server!")
+                    logging.info(f"[FedAVG Client {client_rank}] sending state to server!")
                     buffer = pack(state).to(comm_device)
                     dist.send(tensor=buffer, dst=0)
                     bytes_sent = num_bytes(buffer)
-                    logging.info(f"[FedAVG Client {rank}] state sent to server!")
+                    logging.info(f"[FedAVG Client {client_rank}] state sent to server!")
 
                 dist.barrier()
         
         dist.barrier()
         dist.destroy_process_group()
-        logging.info(f"[FedAVG Client {rank}] Finished")
+        logging.info(f"[FedAVG Client {client_rank}] Finished")
     
     def run(self, rank):
         """Main FedAVG execution"""
