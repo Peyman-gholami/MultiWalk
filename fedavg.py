@@ -162,7 +162,7 @@ class FedAVG:
         notification_requests = []
         for client_rank in range(1, self.parent.size):
             termination_signal = torch.tensor(-10, dtype=torch.int32).to(communication_device)  # -10 = end training
-            notification_request.append(dist.isend(tensor=termination_signal, dst=client_rank))
+            notification_requests.append(dist.isend(tensor=termination_signal, dst=client_rank))
 
         for notification_request in notification_requests:
             notification_request.wait()
