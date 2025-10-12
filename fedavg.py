@@ -101,7 +101,7 @@ class FedAVG:
         # Initialize global model
         global_model = self.parent.create_model()
         global_parameters = [param.to(communication_device) for param in global_model.parameters()]
-        global_optimizer_state = [state.to(communication_device) for state in global_model.buffers()]
+        global_state = [state.to(communication_device) for state in global_model.buffers()]
         
         
         # Initialize communication
@@ -136,7 +136,7 @@ class FedAVG:
                 received_client_state = unpack(state_buffer, [state.shape for state in global_optimizer_state])
                 
                 # Set the global state from the selected client
-                for global_state_param, client_state_param in zip(global_optimizer_state, received_client_state):
+                for global_state_param, client_state_param in zip(global_state, received_client_state):
                     global_state_param.data = client_state_param.to(communication_device)
             
             
@@ -151,7 +151,7 @@ class FedAVG:
                 np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
                          param.cpu().detach().numpy())
             
-            for state_param, shared_state_array in zip(global_optimizer_state, shared_state_arrays):
+            for state_param, shared_state_array in zip(global_state, shared_state_arrays):
                 np.copyto(np.frombuffer(shared_state_array.get_obj(), dtype=np.float32).reshape(state_param.shape),
                          state_param.cpu().detach().numpy())
             
@@ -180,9 +180,9 @@ class FedAVG:
         
         # Initialize task and model
         training_task = self.parent.configure_task(client_rank, training_device)
-        local_parameters, local_optimizer_state = training_task.initialize(self.parent.config["seed"])
+        parameters, state = training_task.initialize(self.parent.config["seed"])
         base_optimizer = configure_base_optimizer(self.parent.config)
-        base_optimizer_state = base_optimizer.init(local_parameters)
+        base_optimizer_state = base_optimizer.init(parameters)
         
         
 
