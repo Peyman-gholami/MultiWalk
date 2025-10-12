@@ -174,7 +174,7 @@ class FedAVG:
         """Client process (rank > 0) - performs local training"""
         torch.manual_seed(self.parent.config["seed"] + client_rank)
         np.random.seed(self.parent.config["seed"] + client_rank)
-        communication_device = 'cpu'
+        comm_device = 'cpu'
         training_device = torch.device(f'cuda:{self.parent.local_rank}' if torch.cuda.is_available() else 'cpu')
         event_logger = EventLogger(log_file_name=self.parent.log_name)
         
