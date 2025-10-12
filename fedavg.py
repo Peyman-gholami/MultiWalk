@@ -123,7 +123,7 @@ class FedAVG:
             self.send_to_clients(participating_clients, global_parameters, communication_device, event_logger, current_round, server_rank)
             
             # Receive updates from participating clients
-            client_parameter_updates = self.receive_from_clients(participating_clients, global_parameters, , communication_device)
+            client_parameter_updates = self.receive_from_clients(participating_clients, global_parameters, communication_device)
             
             # Receive state from only one participating client (the first one)
             if participating_clients:
