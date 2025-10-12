@@ -72,7 +72,7 @@ class FedAVG:
         for model_request in model_send_requests:
             model_request.wait()
     
-    def receive_from_clients(self, participating_clients, global_parameters, global_state, device):
+    def receive_from_clients(self, participating_clients, global_parameters, device):
         """Receive updates from participating clients"""
         # Receive model updates from all participants
         client_parameter_updates = {}
@@ -123,7 +123,7 @@ class FedAVG:
             self.send_to_clients(participating_clients, global_parameters, communication_device, event_logger, current_round, server_rank)
             
             # Receive updates from participating clients
-            client_parameter_updates = self.receive_from_clients(participating_clients, global_parameters, global_optimizer_state, communication_device)
+            client_parameter_updates = self.receive_from_clients(participating_clients, global_parameters, , communication_device)
             
             # Receive state from only one participating client (the first one)
             if participating_clients:
@@ -131,9 +131,9 @@ class FedAVG:
                 logging.info(f"[FedAVG Server] Round {current_round}, receiving state from client {designated_state_sender}")
                 
                 # Receive state from the selected client
-                state_buffer = torch.zeros_like(pack(global_optimizer_state))
+                state_buffer = torch.zeros_like(pack(global_state))
                 dist.recv(tensor=state_buffer, src=designated_state_sender)
-                received_client_state = unpack(state_buffer, [state.shape for state in global_optimizer_state])
+                received_client_state = unpack(state_buffer, [state.shape for state in global_state])
                 
                 # Set the global state from the selected client
                 for global_state_param, client_state_param in zip(global_state, received_client_state):
@@ -217,16 +217,13 @@ class FedAVG:
                 
                 # Update local parameters with global model
                 for local_param, global_param in zip(parameters, global_params):
-                    local_param.data = global_param.to(device)
+                    local_param.data = global_param.to(training_device)
                 
                 # Perform local SGD
                 logger.log_start("local sgd")
                 epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - start_time))
                 logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
                 
-                # Send data size to server
-                data_size_tensor = torch.tensor(local_data_size, dtype=torch.int32).to(comm_device)
-                dist.send(tensor=data_size_tensor, dst=0)
                 
                 dif_parameters = [param.to(comm_device) - global_param.to(comm_device) for param, global_param in zip(parameters, global_params)]
                 # Send updated model to server
