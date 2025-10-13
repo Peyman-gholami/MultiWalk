@@ -177,9 +177,6 @@ class DecentralizedTraining:
         elif self.algorithm == 'async_gossip':
             async_gossip = AsyncGossip(self)
             async_gossip.run(rank)
-        elif self.algorithm == 'async_gossip_general':
-            async_gossip = AsyncGossipGeneral(self)
-            async_gossip.run(rank)
         elif self.algorithm == 'split_random_walk':
             split_random_walk = SplitRandomWalk(self)
             split_random_walk.run(rank)
