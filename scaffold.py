@@ -289,16 +289,16 @@ class Scaffold:
                 event_logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
 
                 # Calculate parameter difference
-                parameter_difference = [param - global_param for param, global_param in zip(parameters, global_params)]
+                parameter_difference = [param.to(comm_device) - global_param for param, global_param in zip(parameters, global_params)]
 
                 # Calculate client control variate update
                 client_control_variate_updates = [- global_c - param_difference / self.parent.tau / local_lr_reference for global_c, param_difference in zip(global_control_variates, parameter_difference)]
 
-                client_control_variates = [client_control_variate + client_control_variate_update for client_control_variate, client_control_variate_update in zip(client_control_variates, client_control_variate_updates)]
+                client_control_variates = [client_control_variate + client_control_variate_update.to(training_device) for client_control_variate, client_control_variate_update in zip(client_control_variates, client_control_variate_updates)]
 
                 # Send parameter difference to server
                 event_logger.log_start("communication")
-                param_diff_buffer = pack(parameter_difference).to(comm_device)
+                param_diff_buffer = pack(parameter_difference)
                 dist.send(tensor=param_diff_buffer, dst=0)
                 bytes_sent = num_bytes(param_diff_buffer)
                 event_logger.log_end("communication", {"from": client_rank, "to": 0, "bytes_sent": bytes_sent})
@@ -306,7 +306,7 @@ class Scaffold:
 
                 # Send client control variate update to server
                 event_logger.log_start("communication")
-                client_control_variate_update_buffer = pack(client_control_variate_updates).to(comm_device)
+                client_control_variate_update_buffer = pack(client_control_variate_updates)
                 dist.send(tensor=client_control_variate_update_buffer, dst=0)
                 bytes_sent = num_bytes(client_control_variate_update_buffer)
                 event_logger.log_end("communication", {"from": client_rank, "to": 0, "bytes_sent": bytes_sent})
