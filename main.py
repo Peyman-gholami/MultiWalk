@@ -106,7 +106,7 @@ if __name__ == "__main__":
         "batch_size": args.batch_size,
         "base_optimizer": args.base_optimizer,
         "learning_rate": args.learning_rate,
-        "global_learning_rate": args.global_learning_rate
+        "global_learning_rate": args.global_learning_rate,
         "lr_warmup_time": args.lr_warmup_time,
         "lr_schedule_milestones": [] if args.no_lr_schedule else [(args.train_time*60*.75, .1), (args.train_time*60*.9, .1)],
         "momentum": args.momentum,
