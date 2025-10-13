@@ -184,7 +184,7 @@ class Scaffold:
             for client_rank, updates in client_updates.items():
                 client_control_variate_update = updates["client_control_variate_update"]
                 for global_control_variate, client_update in zip(global_control_variates, client_control_variate_update):
-                     global_control_variate.data += (client_update.to(communication_device) / len(participating_clients))
+                     global_control_variate.data += (client_update.to(communication_device) / (self.parent.size - 1))
 
 
             # Update shared arrays
@@ -437,7 +437,7 @@ class HUScaffold(Scaffold):
             # Aggregate client control variate updates and update global control variates in place
             for client_rank, updates in client_updates.items():
                 for global_control_variate, delta_i in zip(global_control_variates, updates):
-                     global_control_variate.data += (delta_i.to(communication_device) / self.parent.size-1 )
+                     global_control_variate.data += (delta_i.to(communication_device) / (self.parent.size-1) )
 
 
             # Update shared arrays
