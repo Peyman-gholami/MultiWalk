@@ -271,26 +271,28 @@ class Scaffold:
                 global_control_variates = unpack(control_variates_buffer, [cv.shape for cv in client_control_variates])
                 logging.info(f"[SCAFFOLD Client {client_rank}] received the control variates!")
 
-
+                
                 # Update local parameters with global model
-                global_params = [global_param.to(training_device) for global_param in global_params]
-
                 for local_param, global_param in zip(parameters, global_params):
-                    local_param.data = global_param
+                    local_param.data = global_param.to(training_device)
 
 
                 # Perform local SGD with control variates
                 event_logger.log_start("local sgd")
                 # Corrected the start_time variable name
-                epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - training_start_time), client_control_variates, global_control_variates)
+                for step in range(self.parent.tau):
+                    time_for_lr_schedule = time.time() - training_start_time
+                    epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time_for_lr_schedule, 1)
+                    local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
+                    for param, local_c, global_c  in zip(parameters, client_control_variates, global_control_variates):
+                        param += - local_lr_reference * (global_c - local_c)
                 event_logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
 
                 # Calculate parameter difference
-                parameter_difference = [param.to(comm_device) - global_param.to(comm_device) for param, global_param in zip(parameters, global_params)]
+                parameter_difference = [param.to(comm_device) - global_param for param, global_param in zip(parameters, global_params)]
 
                 # Calculate client control variate update
-                local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time.time() - training_start_time)
-                client_control_variate_updates = [- global_c - param_difference / self.parent.tau / local_lr_reference for global_c, param_difference in zip(global_control_variates, parameter_difference)]
+                client_control_variate_updates = [- global_c.to(comm_device) - param_difference / self.parent.tau / local_lr_reference for global_c, param_difference in zip(global_control_variates, parameter_difference)]
 
                 client_control_variates = [client_control_variate + client_control_variate_update.to(training_device) for client_control_variate, client_control_variate_update in zip(client_control_variates, client_control_variate_updates)]
 

@@ -223,7 +223,7 @@ class FedAVG:
                 # Perform local SGD
                 event_logger.log_start("local sgd")
                 # Corrected the start_time variable name 
-                epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - training_start_time))
+                epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - training_start_time), self.parent.tau)
                 event_logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
 
 

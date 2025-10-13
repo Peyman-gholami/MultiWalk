@@ -158,8 +158,8 @@ class DecentralizedTraining:
             logger.log_end("evaluation", {"test loss": test_loss, "train loss": train_loss})
 
 
-    def local_sgd(self, task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time, split_random_walk_ratio=1):
-        for _ in range(self.tau * split_random_walk_ratio):
+    def local_sgd(self, task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time, local_steps):
+        for _ in range(local_steps):
             epoch, batch = next(batch_data_gen)
             last_loss, gradients, state = task.loss_and_gradient(parameters, state, batch)
             base_optimizer.step(
@@ -280,7 +280,7 @@ class RandomWalk:
             logging.info(f"[{group_name}] Rank {rank} performing training")
             logger.log_start("local sgd")
             epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen,
-                                          (time.time() - start_time))
+                                          (time.time() - start_time), self.parent.tau)
 
             iteration += self.parent.tau
             logger.log_end("local sgd", {"rank": rank, "rw": group_name, "iteration": self.parent.tau, "epoch": epoch})
@@ -514,7 +514,7 @@ class AsyncGossip:
             # first = True
             if True:#while (any(np.any(np.frombuffer(shared_grad.get_obj(), dtype=np.float32) != 0) for shared_grad in shared_grads) or first) and time.time() < end_time :
                 logger.log_start("local sgd")
-                epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - start_time))
+                epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - start_time), self.parent.tau)
                 logger.log_end("local sgd", {"rank": rank, "iteration": self.parent.tau, "epoch": epoch})
                 iteration += self.parent.tau
                 # first = False
@@ -886,7 +886,7 @@ class SplitRandomWalk:
             logging.info(f"[{group_name}] Rank {rank} performing training")
             logger.log_start("local sgd")
             epoch = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen,
-                                          (time.time() - start_time), split_random_walk_ratio)
+                                          (time.time() - start_time), self.parent.tau * split_random_walk_ratio)
 
             iteration += self.parent.tau * split_random_walk_ratio
             logger.log_end("local sgd", {"rank": rank, "rw": group_name, "iteration": self.parent.tau * split_random_walk_ratio, "epoch": epoch})
