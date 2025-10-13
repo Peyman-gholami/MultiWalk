@@ -171,20 +171,20 @@ class Scaffold:
 
                 # Set the global state from the selected client
                 for global_state_param, client_state_param in zip(global_state, received_client_state):
-                    global_state_param.data = client_state_param
+                    global_state_param.data = client_state_param.to(communication_device)
 
 
             # Aggregate parameter differences and update global parameters in place
             for client_rank, updates in client_updates.items():
                 parameter_difference = updates["parameter_difference"]
                 for global_param, client_diff in zip(global_parameters, parameter_difference):
-                    global_param.data += self.global_learning_rate * (client_diff / len(participating_clients))
+                    global_param.data += self.global_learning_rate * (client_diff.to(communication_device) / len(participating_clients))
 
             # Aggregate client control variate updates and update global control variates in place
             for client_rank, updates in client_updates.items():
                 client_control_variate_update = updates["client_control_variate_update"]
                 for global_control_variate, client_update in zip(global_control_variates, client_control_variate_update):
-                     global_control_variate.data += (client_update / len(participating_clients))
+                     global_control_variate.data += (client_update.to(communication_device) / len(participating_clients))
 
 
             # Update shared arrays
