@@ -20,6 +20,7 @@ from utils.tools import (
     load_from_shared
 )
 from fedavg import FedAVG
+from scaffold import Scaffold
 from logger import EventLogger
 
 
@@ -185,6 +186,9 @@ class DecentralizedTraining:
         elif self.algorithm == 'fedavg':
             fedavg = FedAVG(self)
             fedavg.run(rank)
+        elif self.algorithm == 'scaffold':
+            scaffold = Scaffold(self)
+            scaffold.run(rank)
 
 class RandomWalk:
     def __init__(self, parent):

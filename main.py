@@ -54,7 +54,8 @@ if __name__ == "__main__":
     parser.add_argument('--ports', type=int, nargs='+', default=[29500, 29501], help='List of ports for the groups')
     parser.add_argument('--group_names', type=str, nargs='+', default=['group1', 'group2'], help='List of group names')
     parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for asynchronous gossip')
-    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk', 'fedavg'], required=True,
+    parser.add_argument('--global_learning_rate', type=float, default=1.0, help='Global earning rate for federated settings')
+    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk', 'fedavg', 'scaffold'], required=True,
                         help='Algorithm to run')
     parser.add_argument('--split_random_walk_ratio', type=int, default=1, help='Split random walk ratio')
     parser.add_argument('--participation_rate', type=float, default=0.1, help='Fraction of clients participating in each FedAVG round')
@@ -105,6 +106,7 @@ if __name__ == "__main__":
         "batch_size": args.batch_size,
         "base_optimizer": args.base_optimizer,
         "learning_rate": args.learning_rate,
+        "global_learning_rate": args.global_learning_rate
         "lr_warmup_time": args.lr_warmup_time,
         "lr_schedule_milestones": [] if args.no_lr_schedule else [(args.train_time*60*.75, .1), (args.train_time*60*.9, .1)],
         "momentum": args.momentum,
