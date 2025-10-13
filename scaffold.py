@@ -124,7 +124,7 @@ class Scaffold:
 
         return client_updates
 
-    def server_process(self, server_rank, shared_parameter_arrays, shared_state_arrays, shared_control_variate_arrays):
+    def server_process(self, server_rank, shared_parameter_arrays, shared_state_arrays):
         """SCAFFOLD Server process (rank 0) - handles aggregation and client coordination"""
         torch.manual_seed(self.parent.config["seed"])
         np.random.seed(self.parent.config["seed"])
@@ -196,9 +196,6 @@ class Scaffold:
                 np.copyto(np.frombuffer(shared_state_array.get_obj(), dtype=np.float32).reshape(state_param.shape),
                          state_param.cpu().detach().numpy())
 
-            for control_variate, shared_array in zip(global_control_variates, shared_control_variate_arrays):
-                 np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(control_variate.shape),
-                           control_variate.cpu().detach().numpy())
 
             current_round += 1
             dist.barrier()
@@ -336,7 +333,6 @@ class Scaffold:
         if rank == 0:
             shared_arrays = [Array('f', param.numel(), lock=True) for param in model.parameters()]
             shared_state = [Array('f', state.numel(), lock=True) for state in model.buffers()]
-            shared_control_variate_arrays = [Array('f', param.numel(), lock=True) for param in model.parameters()] # Shared arrays for control variates
 
             # Initialize shared arrays for parameters and state (control variates are initialized to zeros)
             for param, shared_array in zip(model.parameters(), shared_arrays):
@@ -350,7 +346,7 @@ class Scaffold:
             eval_process.start()
 
             # Corrected variable name from server_process to server_process_func to avoid shadowing
-            server_process_func = Process(target=self.server_process, args=(rank, shared_arrays, shared_state, shared_control_variate_arrays))
+            server_process_func = Process(target=self.server_process, args=(rank, shared_arrays, shared_state))
             server_process_func.start()
             server_process_func.join()
             eval_process_active.value = 0
