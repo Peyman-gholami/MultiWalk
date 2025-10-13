@@ -271,10 +271,13 @@ class Scaffold:
                 global_control_variates = unpack(control_variates_buffer, [cv.shape for cv in client_control_variates])
                 logging.info(f"[SCAFFOLD Client {client_rank}] received the control variates!")
 
+                global_params = [global_param.to(training_device) for global_param in global_params]
+                global_control_variates = [global_control_variate.to(training_device) for global_control_variate in global_control_variates]
+
                 
                 # Update local parameters with global model
                 for local_param, global_param in zip(parameters, global_params):
-                    local_param.data = global_param.to(training_device)
+                    local_param.data = global_param
 
 
                 # Perform local SGD with control variates
@@ -285,20 +288,20 @@ class Scaffold:
                     epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time_for_lr_schedule, 1)
                     local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
                     for param, local_c, global_c  in zip(parameters, client_control_variates, global_control_variates):
-                        param += - local_lr_reference * (global_c.to(training_device) - local_c)
+                        param += - local_lr_reference * (global_c - local_c)
                 event_logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
 
                 # Calculate parameter difference
-                parameter_difference = [param.to(comm_device) - global_param for param, global_param in zip(parameters, global_params)]
+                parameter_difference = [param - global_param for param, global_param in zip(parameters, global_params)]
 
                 # Calculate client control variate update
                 client_control_variate_updates = [- global_c - param_difference / self.parent.tau / local_lr_reference for global_c, param_difference in zip(global_control_variates, parameter_difference)]
 
-                client_control_variates = [client_control_variate + client_control_variate_update.to(training_device) for client_control_variate, client_control_variate_update in zip(client_control_variates, client_control_variate_updates)]
+                client_control_variates = [client_control_variate + client_control_variate_update for client_control_variate, client_control_variate_update in zip(client_control_variates, client_control_variate_updates)]
 
                 # Send parameter difference to server
                 event_logger.log_start("communication")
-                param_diff_buffer = pack(parameter_difference)
+                param_diff_buffer = pack(parameter_difference).to(comm_device)
                 dist.send(tensor=param_diff_buffer, dst=0)
                 bytes_sent = num_bytes(param_diff_buffer)
                 event_logger.log_end("communication", {"from": client_rank, "to": 0, "bytes_sent": bytes_sent})
@@ -306,7 +309,7 @@ class Scaffold:
 
                 # Send client control variate update to server
                 event_logger.log_start("communication")
-                client_control_variate_update_buffer = pack(client_control_variate_updates)
+                client_control_variate_update_buffer = pack(client_control_variate_updates).to(comm_device)
                 dist.send(tensor=client_control_variate_update_buffer, dst=0)
                 bytes_sent = num_bytes(client_control_variate_update_buffer)
                 event_logger.log_end("communication", {"from": client_rank, "to": 0, "bytes_sent": bytes_sent})
