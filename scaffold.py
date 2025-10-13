@@ -184,7 +184,7 @@ class Scaffold:
             for client_rank, updates in client_updates.items():
                 client_control_variate_update = updates["client_control_variate_update"]
                 for global_control_variate, client_update in zip(global_control_variates, client_control_variate_update):
-                     global_control_variate.data += (client_update.to(communication_device) / self.parent.size-1)
+                     global_control_variate.data += (client_update.to(communication_device) / len(participating_clients))
 
 
             # Update shared arrays
