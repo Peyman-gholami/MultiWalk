@@ -646,7 +646,7 @@ class HScaffold(Scaffold):
         # Initialize communication
         communication_backend = 'gloo'  # Use gloo for CPU communication
         self.parent.init_process(server_rank, self.parent.size, communication_backend, self.parent.ports[0], self.parent.group_names[0])
-
+        dist.barrier()
         current_round = 0
         training_start_time = time.time()
         training_end_time = training_start_time + self.parent.train_time * 60
@@ -737,6 +737,7 @@ class HScaffold(Scaffold):
         # Initialize communication
         communication_backend = 'gloo'
         self.parent.init_process(client_rank, self.parent.size, communication_backend, self.parent.ports[0], self.parent.group_names[0])
+        dist.barrier()
 
         training_start_time = time.time()
         current_round = 0
