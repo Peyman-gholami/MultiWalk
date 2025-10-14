@@ -20,7 +20,7 @@ from utils.tools import (
     load_from_shared
 )
 from fedavg import FedAVG
-from scaffold import Scaffold, HUScaffold
+from scaffold import Scaffold, HUScaffold, HScaffold
 from sgfocus import SGFocus
 from logger import EventLogger
 
@@ -190,6 +190,10 @@ class DecentralizedTraining:
         elif self.algorithm == 'huscaffold':
             huscaffold = HUScaffold(self)
             huscaffold.run(rank)
+        elif self.algorithm == 'hscaffold':
+            print("here", "*"*100)
+            hscaffold = HScaffold(self)
+            hscaffold.run(rank)
         elif self.algorithm == 'sgfocus':
             sgfocus = SGFocus(self)
             sgfocus.run(rank)
