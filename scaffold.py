@@ -282,7 +282,7 @@ class Scaffold:
                 # Corrected the start_time variable name
                 for step in range(self.parent.tau):
                     time_for_lr_schedule = time.time() - training_start_time
-                    epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time_for_lr_schedule, 1)
+                    epoch, gradients = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time_for_lr_schedule, 1)
                     local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
                     for param, local_c, global_c  in zip(parameters, client_control_variates, global_control_variates):
                         param += - local_lr_reference * (global_c - local_c)
@@ -535,7 +535,7 @@ class HUScaffold(Scaffold):
                 # Corrected the start_time variable name
                 for step in range(self.parent.tau):
                     time_for_lr_schedule = time.time() - training_start_time
-                    epoch = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time_for_lr_schedule, 1)
+                    epoch, gradients = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time_for_lr_schedule, 1)
                     local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
                     for param, local_c, global_c  in zip(parameters, client_control_variates, global_control_variates):
                         param += - local_lr_reference * (global_c - local_c)
