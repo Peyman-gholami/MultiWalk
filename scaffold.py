@@ -574,7 +574,7 @@ class HUScaffold(Scaffold):
 
 
 class HScaffold(Scaffold):
-    def send_to_clients(self, participating_clients, global_parameters, global_control_variates, device, logger, round_number, server_rank):
+    def send_to_clients(self, participating_clients, global_parameters, device, logger, round_number, server_rank):
         """Send global model to all participating clients separately"""
         # Determine which client should send state (first participating client)
         designated_state_sender = participating_clients[0] if participating_clients else None
@@ -657,7 +657,7 @@ class HScaffold(Scaffold):
             logging.info(f"[HSCAFFOLD Server] Round {current_round}, Participants: {participating_clients}")
 
             # Send global model and control variates to all participating clients
-            self.send_to_clients(participating_clients, global_parameters, global_control_variates, communication_device, event_logger, current_round, server_rank)
+            self.send_to_clients(participating_clients, global_parameters, communication_device, event_logger, current_round, server_rank)
 
             # Receive updates from participating clients
             client_updates = self.receive_from_clients(participating_clients, global_parameters)

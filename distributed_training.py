@@ -191,7 +191,6 @@ class DecentralizedTraining:
             huscaffold = HUScaffold(self)
             huscaffold.run(rank)
         elif self.algorithm == 'hscaffold':
-            print("here", "*"*100)
             hscaffold = HScaffold(self)
             hscaffold.run(rank)
         elif self.algorithm == 'sgfocus':
