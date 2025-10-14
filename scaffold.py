@@ -812,32 +812,3 @@ class HScaffold(Scaffold):
         dist.barrier()
         dist.destroy_process_group()
         logging.info(f"[SCAFFOLD Client {client_rank}] Finished")
-
-
-    def run(self, rank):
-        """Main SCAFFOLD execution"""
-        model = self.parent.create_model()
-        if rank == 0:
-            shared_arrays = [Array('f', param.numel(), lock=True) for param in model.parameters()]
-            shared_state = [Array('f', state.numel(), lock=True) for state in model.buffers()]
-
-            # Initialize shared arrays for parameters and state (control variates are initialized to zeros)
-            for param, shared_array in zip(model.parameters(), shared_arrays):
-                np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
-                        param.cpu().detach().numpy())
-
-            eval_process_active = Value('i', 1)
-            # Server process
-            eval_process = Process(target=self.parent.evaluation_process,
-                                 args=(self.parent.eval_gpu, shared_arrays, shared_state, eval_process_active, None))
-            eval_process.start()
-
-            # Corrected variable name from server_process to server_process_func to avoid shadowing
-            server_process_func = Process(target=self.server_process, args=(rank, shared_arrays, shared_state))
-            server_process_func.start()
-            server_process_func.join()
-            eval_process_active.value = 0
-            eval_process.join()
-        else:
-            # Client process
-            self.client_process(rank,)
