@@ -21,7 +21,7 @@ from utils.tools import (
 )
 from fedavg import FedAVG
 from scaffold import Scaffold, HUScaffold
-from sgFocus import SGFocus
+from sgfocus import SGFocus
 from logger import EventLogger
 
 
