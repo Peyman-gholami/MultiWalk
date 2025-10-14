@@ -145,8 +145,11 @@ class SGFocus:
 
             # Update global parameters
             # x_{r+1} = x_r - eta * y_{r+1}
+            time_for_lr_schedule = time.time() - training_start_time
+            local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
+                    
             for global_param, global_grad in zip(global_parameters, global_aggregated_grad):
-                global_param.data -= self.global_learning_rate * global_grad
+                global_param.data -= local_lr_reference * global_grad
 
             # Update shared arrays
             for param, shared_array in zip(global_parameters, shared_parameter_arrays):
