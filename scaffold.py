@@ -726,7 +726,7 @@ class HScaffold(Scaffold):
 
         # Initialize client control variates (initialized to zeros)
         client_control_variates = [torch.zeros_like(param).to(training_device) for param in parameters]
-
+        last_global_params = [param.clone() for param in parameters]
         last_round = -1
 
         batch_data_gen = training_task.data.iterator(
@@ -763,9 +763,12 @@ class HScaffold(Scaffold):
                 global_params = [global_param.to(training_device) for global_param in global_params]
                 time_for_lr_schedule = time.time() - training_start_time
                 local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
-                global_control_variates = [(local_param - global_param) / (self.parent.tau * self.global_learning_rate * local_lr_reference * (current_round - last_round))  for global_param, local_param in zip(global_params, parameters)]
+                global_control_variates = [(last_global_param - global_param) / (self.parent.tau * self.global_learning_rate * local_lr_reference * (current_round - last_round))  for global_param, last_global_param in zip(global_params, last_global_params)]
                 last_round = current_round
+                last_global_params = [param.clone() for param in global_param]
                 
+                
+
                 # Update local parameters with global model
                 for local_param, global_param in zip(parameters, global_params):
                     local_param.data = global_param.clone()
