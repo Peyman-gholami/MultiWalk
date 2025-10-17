@@ -642,7 +642,8 @@ class HScaffold(Scaffold):
         global_model = self.parent.create_model()
         global_parameters = [param.to(communication_device) for param in global_model.parameters()]
         global_state = [state.to(communication_device) for state in global_model.buffers()]
-
+        print(global_parameters)
+        return
         # Initialize communication
         communication_backend = 'gloo'  # Use gloo for CPU communication
         self.parent.init_process(server_rank, self.parent.size, communication_backend, self.parent.ports[0], self.parent.group_names[0])
@@ -727,6 +728,8 @@ class HScaffold(Scaffold):
         # Initialize client control variates (initialized to zeros)
         client_control_variates = [torch.zeros_like(param).to(training_device) for param in parameters]
         last_global_params = [param.clone() for param in parameters]
+        print(last_global_params)
+        return
         last_round = -1
 
         batch_data_gen = training_task.data.iterator(
