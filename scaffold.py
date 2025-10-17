@@ -161,7 +161,8 @@ class Scaffold:
             # Receive state from all participating clients using non-blocking irecv and average
             if participating_clients:
                 logging.info(f"[SCAFFOLD Server] Round {current_round}, receiving and averaging state from clients {participating_clients}")
-                accumulated_state = [torch.zeros_like(state_param).to(communication_device) for state_param in global_state]
+                # Accumulate in float to avoid dtype conflicts (e.g., Long buffers like num_batches_tracked)
+                accumulated_state = [torch.zeros_like(state_param, dtype=torch.float32).to(communication_device) for state_param in global_state]
                 # Initiate non-blocking receives
                 state_receive_info = []
                 for sender_rank in participating_clients:
@@ -174,11 +175,16 @@ class Scaffold:
                     state_request.wait()
                     received_client_state = unpack(state_buffer, [state.shape for state in global_state])
                     for acc_param, client_state_param in zip(accumulated_state, received_client_state):
-                        acc_param.data += client_state_param.to(communication_device)
+                        acc_param.data += client_state_param.to(communication_device, dtype=torch.float32)
 
                 num_senders = len(participating_clients)
                 for global_state_param, acc_param in zip(global_state, accumulated_state):
-                    global_state_param.data = acc_param / num_senders
+                    averaged = acc_param / num_senders
+                    if torch.is_floating_point(global_state_param):
+                        global_state_param.data = averaged.to(dtype=global_state_param.dtype)
+                    else:
+                        # For integer buffers, round before casting back
+                        global_state_param.data = torch.round(averaged).to(dtype=global_state_param.dtype)
 
 
             # Aggregate parameter differences and update global parameters in place
