@@ -49,7 +49,8 @@ class Scaffold:
                 logging.info(f"[SCAFFOLD Server] Round {round_number}, notifications sent to rank {client_rank}!")
             else:
                 # Send notification with state sender info: 1 = start training, 2 = start training + send state
-                training_notification = torch.tensor(2, dtype=torch.int32).to(device)
+                training_signal = 2 if client_rank == designated_state_sender else 1
+                training_notification = torch.tensor(training_signal, dtype=torch.int32).to(device)
                 notification_requests.append(dist.isend(tensor=training_notification, dst=client_rank))
                 logging.info(f"[SCAFFOLD Server] Round {round_number}, notifications sent to rank {client_rank}!")
 
@@ -158,33 +159,19 @@ class Scaffold:
             # Receive updates from participating clients
             client_updates = self.receive_from_clients(participating_clients, global_parameters)
 
-            # Receive state from all participating clients using non-blocking irecv and average
+            # Receive state from only one participating client (the first one)
             if participating_clients:
-                logging.info(f"[SCAFFOLD Server] Round {current_round}, receiving and averaging state from clients {participating_clients}")
-                # Accumulate in float to avoid dtype conflicts (e.g., Long buffers like num_batches_tracked)
-                accumulated_state = [torch.zeros_like(state_param, dtype=torch.float32).to(communication_device) for state_param in global_state]
-                # Initiate non-blocking receives
-                state_receive_info = []
-                for sender_rank in participating_clients:
-                    state_buffer = torch.zeros_like(pack(global_state))
-                    state_request = dist.irecv(tensor=state_buffer, src=sender_rank)
-                    state_receive_info.append((state_request, state_buffer, sender_rank))
+                designated_state_sender = participating_clients[0]  # Choose the first participating client
+                logging.info(f"[SCAFFOLD Server] Round {current_round}, receiving state from client {designated_state_sender}")
 
-                # Wait for all and accumulate
-                for state_request, state_buffer, sender_rank in state_receive_info:
-                    state_request.wait()
-                    received_client_state = unpack(state_buffer, [state.shape for state in global_state])
-                    for acc_param, client_state_param in zip(accumulated_state, received_client_state):
-                        acc_param.data += client_state_param.to(communication_device, dtype=torch.float32)
+                # Receive state from the selected client
+                state_buffer = torch.zeros_like(pack(global_state))
+                dist.recv(tensor=state_buffer, src=designated_state_sender)
+                received_client_state = unpack(state_buffer, [state.shape for state in global_state])
 
-                num_senders = len(participating_clients)
-                for global_state_param, acc_param in zip(global_state, accumulated_state):
-                    averaged = acc_param / num_senders
-                    if torch.is_floating_point(global_state_param):
-                        global_state_param.data = averaged.to(dtype=global_state_param.dtype)
-                    else:
-                        # For integer buffers, round before casting back
-                        global_state_param.data = torch.round(averaged).to(dtype=global_state_param.dtype)
+                # Set the global state from the selected client
+                for global_state_param, client_state_param in zip(global_state, received_client_state):
+                    global_state_param.data = client_state_param.to(communication_device)
 
 
             # Aggregate parameter differences and update global parameters in place
