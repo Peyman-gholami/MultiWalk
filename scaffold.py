@@ -793,7 +793,7 @@ class HScaffold(Scaffold):
                 local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
                 
                 # global_control_variates = [(last_global_param - global_param) / (self.parent.tau * self.global_learning_rate * local_lr_reference * (current_round - last_round))  for global_param, last_global_param in zip(global_params, last_global_params)]
-                global_control_variates = [(last_global_param - global_param) * int(self.participation_rate * (parent.size -1)) / (parent.size -1) / ( self.parent.tau * self.global_learning_rate * local_lr_reference )  for global_param, last_global_param in zip(global_params, last_global_params)]
+                global_control_variates = [(last_global_param - global_param) * int(self.participation_rate * (self.parent.size -1)) / (self.parent.size -1) / ( self.parent.tau * self.global_learning_rate * local_lr_reference )  for global_param, last_global_param in zip(global_params, last_global_params)]
                 
                 last_round = current_round
                 last_global_params = [param.clone() for param in global_params]
