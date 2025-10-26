@@ -1,3 +1,12 @@
+# Tell pip to also look in the PyTorch CUDA 11.8 index
+--extra-index-url https://download.pytorch.org/whl/cu118
+
+# PyTorch packages (will be found in the extra index)
+torch
+torchvision
+torchaudio
+
+# Other packages (will be found in PyPI)
 transformers
 datasets
 accelerate
