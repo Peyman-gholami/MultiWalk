@@ -1,3 +1,5 @@
+torch==2.2.1
+torchvision==0.17.1  # Pin this too, since it must match torch
 transformers
 datasets
 accelerate
