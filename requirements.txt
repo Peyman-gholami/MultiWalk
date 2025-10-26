@@ -1,4 +1,5 @@
-# Other packages (will be found in PyPI)
+torch==2.9.0
+torchvision==0.24.0
 transformers
 datasets
 accelerate
