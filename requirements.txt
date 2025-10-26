@@ -2,3 +2,4 @@ transformers
 datasets
 accelerate
 bitsandbytes>=0.39.0
+torchvision
