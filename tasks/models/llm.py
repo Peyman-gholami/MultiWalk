@@ -21,23 +21,27 @@ def get_resnet_separation_point(model: nn.Module) -> int:
     This uses parameter identity rather than names, so it works regardless of wrappers that
     may alter parameter names (e.g., DataParallel).
     """
-    # Check if model has transformer layers
-    if not hasattr(model, 'transformer') and not hasattr(model, 'model'):
-        raise ValueError("Model does not have expected transformer structure")
+    layers = None
     
-    # Get the transformer part of the model
-    transformer = getattr(model, 'transformer', None) or getattr(model, 'model', None)
-    if not transformer:
-        raise ValueError("Could not find transformer component in model")
+    # Try different common transformer architectures
+    if hasattr(model, 'model') and hasattr(model.model, 'decoder') and hasattr(model.model.decoder, 'layers'):
+        # OPT model structure: model.decoder.layers
+        layers = model.model.decoder.layers
+    elif hasattr(model, 'transformer') and hasattr(model.transformer, 'h'):
+        # GPT-2 style: transformer.h
+        layers = model.transformer.h
+    elif hasattr(model, 'transformer') and hasattr(model.transformer, 'layers'):
+        # Some models: transformer.layers
+        layers = model.transformer.layers
+    elif hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        # Some models: model.layers
+        layers = model.model.layers
+    elif hasattr(model, 'layers'):
+        # Direct layers attribute
+        layers = model.layers
     
-    # Check if it has layers attribute
-    if not hasattr(transformer, 'h') and not hasattr(transformer, 'layers'):
-        raise ValueError("Transformer does not have expected layers structure")
-    
-    # Get the layers
-    layers = getattr(transformer, 'h', None) or getattr(transformer, 'layers', None)
-    if not layers:
-        raise ValueError("Could not find layers in transformer")
+    if layers is None:
+        raise ValueError("Model does not have expected transformer layers structure")
     
     # Check if we have at least 12 layers
     if len(layers) < 12:
