@@ -114,6 +114,9 @@ class DecentralizedTraining:
         if self.config["model_name"] == "ResNet20":
             from tasks.models.resnet20 import get_resnet_separation_point
             return get_resnet_separation_point(model)
+        elif "opt" in self.config["model_name"]:
+            from tasks.models.llm import get_resnet_separation_point
+            return get_resnet_separation_point(model)
         return None
 
 
