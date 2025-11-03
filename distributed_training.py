@@ -26,7 +26,7 @@ from logger import EventLogger
 
 
 
-set_start_method('spawn', force=True)
+# set_start_method('spawn', force=True)
 
 logging.basicConfig(level=logging.CRITICAL)
 # logging.basicConfig(level=logging.INFO)
