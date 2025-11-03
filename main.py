@@ -113,7 +113,8 @@ if __name__ == "__main__":
         "weight_decay": args.weight_decay
     }
 
-    if args.task == 'MNLI':
+    # Use 'spawn' for transformer-based models/tasks to avoid multiprocessing issues
+    if args.task == 'MNLI' or ('opt' in args.model_name.lower()):
         set_start_method('spawn', force=True)
 
 
