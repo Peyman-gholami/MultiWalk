@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser.add_argument('--non_iid_alpha', type=float, default=1.0, help='Non-IID alpha value')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size per worker')
     parser.add_argument('--base_optimizer', type=str, default="SGD", help='Base optimizer')
-    parser.add_argument('--lr_warmup_time', type=int, default=2 , help='Learning rate warmup time in minutes')
+    parser.add_argument('--lr_warmup_time', type=float, default=2 , help='Learning rate warmup time in minutes')
     parser.add_argument('--momentum', type=float, default=0.9, help='Momentum')
     parser.add_argument('--weight_decay', type=float, default=0.0001, help='Weight decay')
     parser.add_argument('--evaluate_interval', type=int, default=10, help='Evaluation interval in seconds')
