@@ -349,11 +349,11 @@ class RandomWalk:
 
         rw_generator = self.random_walk_generator(current_node=start_rank, neighbor_dict=self.parent.neighbors, rng=rng)
         current_rank = start_rank
-
-        with self.parent.lock:
-            comm_process_started.value = +1
         dist.barrier()
         logging.info(f"[{group_name}] Rank {rank} barrier passed")
+        with self.parent.lock:
+            comm_process_started.value = +1
+
         start_time = time.time()
         failure_times = sorted(self.parent.aggregator_failure_times)  # Sort failure times
         failure_index = 0  # Track which failure we're at
