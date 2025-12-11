@@ -272,6 +272,7 @@ class RandomWalk:
             time.sleep(0.5)
 
         start_time = time.time()
+        print(f"[{group_name}] Rank {rank} start time: {start_time}")
         end_time = start_time + self.parent.train_time * 60  # Convert minutes to seconds
         iteration = 0
 
