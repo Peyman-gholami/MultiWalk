@@ -37,7 +37,7 @@ logging.basicConfig(level=logging.CRITICAL)
 
 class DecentralizedTraining:
     def __init__(self, size, local_rank, tau, train_time, neighbors, top_nodes, rw_starting_ranks, master_address, ports, group_names, algorithm, config, evaluate_interval,
-                 eval_gpu, train_eval_frac, no_test_set_eval, log_name):
+                 eval_gpu, train_eval_frac, no_test_set_eval, log_name, aggregator_failure_times=None):
         self.size = size
         self.local_rank = local_rank
         self.tau = tau
@@ -58,6 +58,7 @@ class DecentralizedTraining:
         self.train_eval_frac = train_eval_frac
         self.no_test_set_eval = no_test_set_eval
         self.log_name = log_name
+        self.aggregator_failure_times = aggregator_failure_times if aggregator_failure_times is not None else []
 
     def init_process(self, rank, size, backend, port, group_name):
         init_method = f'tcp://{self.master_address}:{port}'
@@ -142,7 +143,16 @@ class DecentralizedTraining:
         task = self.configure_task(-1, device)
         parameters, state = task.initialize(self.config["seed"])
 
-        while eval_process_active.value == 1:
+        while True:
+            # Wait for activation (eval_process_active == 1) or termination (eval_process_active == -1)
+            while eval_process_active.value == 2:
+                time.sleep(0.1)  # Check periodically if activated
+            
+            # Check if we should terminate (eval_process_active == -1 means terminate)
+            if eval_process_active.value == 0:
+                break
+            
+            # eval_process_active == 1, so we're active - perform evaluation
             time.sleep(self.evaluate_interval)
             if shared_array_index is not None:
                 extracted_params = shared_arrays[shared_array_index.value]
@@ -295,7 +305,8 @@ class RandomWalk:
             iteration += self.parent.tau
             logger.log_end("local sgd", {"rank": rank, "rw": group_name, "iteration": self.parent.tau, "epoch": epoch})
 
-            if rank == 0:
+            # Update shared_state for current aggregator (not just rank 0)
+            if shared_state is not None:
                 for st, shared_array in zip(state, shared_state):
                     np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(st.shape),
                               st.cpu().detach().numpy())
@@ -313,7 +324,7 @@ class RandomWalk:
             yield current_node
 
 
-    def rw_communication(self, rank, rw, queue, queue_op_id, comm_process_started, shared_arrays=None, shared_array_index=None):
+    def rw_communication(self, rank, rw, queue, queue_op_id, comm_process_started, shared_arrays=None, shared_array_index=None, eval_process_active=None):
         torch.manual_seed(self.parent.config["seed"] + rank + rw)
         np.random.seed(self.parent.config["seed"] + rank + rw)
         group_name = self.parent.group_names[rw]
@@ -342,18 +353,35 @@ class RandomWalk:
         with self.parent.lock:
             comm_process_started.value = +1
 
-        # start_time = time.time()
-        # end_time = start_time + self.parent.train_time * 60  # Convert minutes to seconds
+        start_time = time.time()
+        failure_times = sorted(self.parent.aggregator_failure_times)  # Sort failure times
+        failure_index = 0  # Track which failure we're at
+        # Use a local variable to track aggregator rank for this walk, but sync with shared state if needed
+        # Note: This assumes all walks see failures at similar times, which may not be perfect but works for most cases
+        current_aggregator_rank = 0
+        failure_just_happened = False
         iteration = 0
 
-
         while True:
+            # Check if aggregator failure should occur
+            current_time_minutes = (time.time() - start_time) / 60.0
+            if failure_index < len(failure_times) and current_time_minutes >= failure_times[failure_index]:
+                if eval_process_active is not None and eval_process_active.value == 1:
+                    eval_process_active.value = 0
+                    logging.info(f"[{group_name}] Deactivating eval_process for aggregator {current_aggregator_rank}")
+                old_aggregator = current_aggregator_rank
+                current_aggregator_rank += 1
+                logging.info(f"[{group_name}] Aggregator failure at {current_time_minutes:.2f} minutes. Old aggregator: {old_aggregator}, New aggregator: {current_aggregator_rank}")
+                failure_index += 1
+                failure_just_happened = True
+                
+
             next_rank = next(rw_generator)
             logging.info(f"[{group_name}] Iteration {iteration} at Rank {rank}, Current Active Rank: {current_rank}")
             # dist.barrier()
 
             if rank == current_rank:
-                if True: #with self.parent.lock:
+                if rank >= current_aggregator_rank:
                     logging.info(f"[{group_name}] Rank {rank} performing training")
 
                     queue_op_id[rw].value = 1
@@ -366,21 +394,38 @@ class RandomWalk:
                         param_data = np.frombuffer(queue_param.get_obj(), dtype=np.float32).reshape(param.shape)
                         param.data = torch.from_numpy(param_data).to(device)
 
-                    if rank == 0:
-                       with self.parent.lock:
-                            for param, rw_pre_param_shared_array, global_pre_param_shared_array in zip(parameters, shared_arrays[rw], shared_arrays[shared_array_index.value]):
-                                rw_pre_param = np.frombuffer(rw_pre_param_shared_array.get_obj(), dtype=np.float32).reshape(param.shape)
-                                global_pre_param = np.frombuffer(global_pre_param_shared_array.get_obj(), dtype=np.float32).reshape(param.shape)
-                                param.data = torch.from_numpy(global_pre_param).to(device) + 1 / len(self.parent.group_names) * (param - torch.from_numpy(rw_pre_param).to(device))
 
-                            for param, shared_array in zip(parameters, shared_arrays[rw]):
-                                np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape), param.cpu().detach().numpy())
 
+                    if rank == current_aggregator_rank:
+                        with self.parent.lock:
+                            if failure_just_happened:
+                                # First time: just update with received model
+                                logging.info(f"[{group_name}] New aggregator {rank} first time receiving walk {rw}, updating directly")
+                                for param, shared_array in zip(parameters, shared_arrays[rw]):
+                                    np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape), 
+                                              param.cpu().detach().numpy())
+                                # Activate eval_process for new aggregator when first walk arrives
+                                if eval_process_active is not None and eval_process_active.value == 2:
+                                    logging.info(f"[{group_name}] Activating eval_process for new aggregator {rank} after receiving first walk {rw}")
+                                    eval_process_active.value = 1
+                                failure_just_happened = False  # Reset flag after handling first reception
+                            else:
+                                # Not first time: perform aggregation
+                                logging.info(f"[{group_name}] Aggregator {rank} aggregating walk {rw}")
+                                for param, rw_pre_param_shared_array, global_pre_param_shared_array in zip(parameters, shared_arrays[rw], shared_arrays[shared_array_index.value]):
+                                    rw_pre_param = np.frombuffer(rw_pre_param_shared_array.get_obj(), dtype=np.float32).reshape(param.shape)
+                                    global_pre_param = np.frombuffer(global_pre_param_shared_array.get_obj(), dtype=np.float32).reshape(param.shape)
+                                    param.data = torch.from_numpy(global_pre_param).to(device) + 1 / len(self.parent.group_names) * (param - torch.from_numpy(rw_pre_param).to(device))
+
+                                for param, shared_array in zip(parameters, shared_arrays[rw]):
+                                    np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape), param.cpu().detach().numpy())
 
                             shared_array_index.value = rw
 
                     logging.info(f"[{group_name}] Rank {rank} sending model to Rank {next_rank}")
 
+                else:
+                    logging.info(f"[{group_name}] Rank {rank} acting as relay, forwarding model to Rank {next_rank}")
                 if next_rank != rank:
                     with self.parent.lock_comm_send:
                         logging.info(f"[{group_name}]  Rank {rank} notifying and exchanging model with Rank {next_rank}")
@@ -428,19 +473,38 @@ class RandomWalk:
     def run(self, rank):
         model = self.parent.create_model()
         shared_arrays = []
-        if rank == 0:
+        
+        # Determine potential aggregator nodes (0, 1, 2, ... up to size-1, but limit to reasonable number)
+        max_potential_aggregators = min(self.parent.size, len(self.parent.aggregator_failure_times) + 1)
+        potential_aggregator_ranks = list(range(max_potential_aggregators))
+        
+        # Initialize aggregator capabilities on all potential aggregator nodes
+        if rank in potential_aggregator_ranks:
             for _ in range(len(self.parent.group_names)):
                 group_shared_arrays = [Array('f', param.numel(), lock=True) for param in model.parameters()]
                 shared_arrays.append(group_shared_arrays)
-                for param, shared_array in zip(model.parameters(), group_shared_arrays):
-                    np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
-                              param.cpu().detach().numpy())
+                # Initialize as zero for all potential aggregators except rank 0
+                if rank == 0:
+                    for param, shared_array in zip(model.parameters(), group_shared_arrays):
+                        np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
+                                  param.cpu().detach().numpy())
+                else:
+                    # Initialize as zero for backup aggregators
+                    for shared_array in group_shared_arrays:
+                        np.frombuffer(shared_array.get_obj(), dtype=np.float32).fill(0.0)
 
             shared_array_index = Value('i', 0)
             shared_state = [Array('f', state.numel(), lock=True) for state in model.buffers()]
-            eval_process_active = Value('i', 1)
+            for state, shared_array in zip(model.buffers(), shared_state):
+                np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(state.shape),
+                            state.cpu().detach().numpy())
+            
+            eval_process_active = Value('i', 2)  # Start as inactive for backup aggregators
+            eval_process = None
+            if rank == 0:
+                eval_process_active.value = 1
             eval_process = Process(target=self.parent.evaluation_process, args=(
-            self.parent.eval_gpu, shared_arrays, shared_state, eval_process_active, shared_array_index))
+                self.parent.eval_gpu, shared_arrays, shared_state, eval_process_active, shared_array_index))
             eval_process.start()
 
         queue = []
@@ -456,7 +520,7 @@ class RandomWalk:
         comm_process_started = Value('i', 0)
 
         comm_processes = []
-        if rank == 0:
+        if rank in potential_aggregator_ranks:
             compute_process = Process(target=self.rw_computation,
                                       args=(rank, queue, queue_op_id, comm_process_started, shared_state))
         else:
@@ -465,9 +529,10 @@ class RandomWalk:
         compute_process.start()
 
         for rw in range(len(self.parent.group_names)):
-            if rank == 0:
+            if rank in potential_aggregator_ranks:
                 comm_process = Process(target=self.rw_communication, args=(
-                rank, rw, queue, queue_op_id, comm_process_started, shared_arrays, shared_array_index,))
+                    rank, rw, queue, queue_op_id, comm_process_started, shared_arrays, shared_array_index, 
+                    eval_process_active,))
             else:
                 comm_process = Process(target=self.rw_communication,
                                        args=(rank, rw, queue, queue_op_id, comm_process_started))
@@ -478,9 +543,8 @@ class RandomWalk:
         for p in comm_processes:
             p.terminate()
 
-
-        if rank == 0:
-            eval_process_active.value = 0
+        if rank in potential_aggregator_ranks:
+            eval_process_active.value = 0  # Signal termination
             eval_process.join()
 
 

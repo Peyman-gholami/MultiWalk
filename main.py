@@ -77,6 +77,8 @@ if __name__ == "__main__":
                         help='If provided, set no_test_set_eval to True. Default is False.')
     parser.add_argument('--no_lr_schedule', action='store_true',
                         help='If provided, set no_lr_schedule to True. Default is False.')
+    parser.add_argument('--aggregator_failure_times', type=float, nargs='+', default=[],
+                        help='List of times (in minutes) when aggregator node fails and needs to be replaced')
 
     args = parser.parse_args()
 
@@ -135,6 +137,7 @@ if __name__ == "__main__":
         train_eval_frac=args.train_eval_frac,
         no_test_set_eval=args.no_test_set_eval,
         log_name = log_name,
+        aggregator_failure_times=args.aggregator_failure_times if args.algorithm == 'random_walk' else [],
     )
     training.run(rank)
     # Send log file to remote server
