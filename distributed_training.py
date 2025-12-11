@@ -352,7 +352,8 @@ class RandomWalk:
 
         with self.parent.lock:
             comm_process_started.value = +1
-
+        dist.barrier()
+        logging.info(f"[{group_name}] Rank {rank} barrier passed")
         start_time = time.time()
         failure_times = sorted(self.parent.aggregator_failure_times)  # Sort failure times
         failure_index = 0  # Track which failure we're at
