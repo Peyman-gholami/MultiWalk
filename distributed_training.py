@@ -368,10 +368,11 @@ class RandomWalk:
             # Check if aggregator failure should occur
             current_time_minutes = (time.time() - start_time) / 60.0
             if failure_index < len(failure_times) and current_time_minutes >= failure_times[failure_index]:
-                if eval_process_active is not None and eval_process_active.value == 1:
-                    eval_process_active.value = 0
-                    logging.info(f"[{group_name}] Deactivating eval_process for aggregator {current_aggregator_rank}")
                 old_aggregator = current_aggregator_rank
+                # Only deactivate eval_process if we're the old aggregator
+                if eval_process_active is not None and eval_process_active.value == 1 and rank == old_aggregator:
+                    eval_process_active.value = 0
+                    logging.info(f"[{group_name}] Deactivating eval_process for aggregator {old_aggregator}")
                 current_aggregator_rank += 1
                 logging.info(f"[{group_name}] Aggregator failure at {current_time_minutes:.2f} minutes. Old aggregator: {old_aggregator}, New aggregator: {current_aggregator_rank}")
                 failure_index += 1
