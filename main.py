@@ -137,7 +137,7 @@ if __name__ == "__main__":
         train_eval_frac=args.train_eval_frac,
         no_test_set_eval=args.no_test_set_eval,
         log_name = log_name,
-        aggregator_failure_times=args.aggregator_failure_times if args.algorithm == 'random_walk' else [],
+        aggregator_failure_times=args.aggregator_failure_times,
     )
     training.run(rank)
     # Send log file to remote server

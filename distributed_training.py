@@ -37,7 +37,7 @@ logging.basicConfig(level=logging.CRITICAL)
 
 class DecentralizedTraining:
     def __init__(self, size, local_rank, tau, train_time, neighbors, top_nodes, rw_starting_ranks, master_address, ports, group_names, algorithm, config, evaluate_interval,
-                 eval_gpu, train_eval_frac, no_test_set_eval, log_name, aggregator_failure_times=None):
+                 eval_gpu, train_eval_frac, no_test_set_eval, log_name, failure_times=None):
         self.size = size
         self.local_rank = local_rank
         self.tau = tau
@@ -58,7 +58,7 @@ class DecentralizedTraining:
         self.train_eval_frac = train_eval_frac
         self.no_test_set_eval = no_test_set_eval
         self.log_name = log_name
-        self.aggregator_failure_times = aggregator_failure_times if aggregator_failure_times is not None else []
+        self.failure_times = failure_times if failure_times is not None else []
 
     def init_process(self, rank, size, backend, port, group_name):
         init_method = f'tcp://{self.master_address}:{port}'
@@ -356,7 +356,7 @@ class RandomWalk:
             comm_process_started.value = +1
 
         start_time = time.time()
-        failure_times = sorted(self.parent.aggregator_failure_times)  # Sort failure times
+        failure_times = sorted(self.parent.failure_times)  # Sort failure times
         failure_index = 0  # Track which failure we're at
         # Use a local variable to track aggregator rank for this walk, but sync with shared state if needed
         # Note: This assumes all walks see failures at similar times, which may not be perfect but works for most cases
@@ -478,7 +478,7 @@ class RandomWalk:
         shared_arrays = []
         
         # Determine potential aggregator nodes (0, 1, 2, ... up to size-1, but limit to reasonable number)
-        max_potential_aggregators = min(self.parent.size, len(self.parent.aggregator_failure_times) + 1)
+        max_potential_aggregators = min(self.parent.size, len(self.parent.failure_times) + 1)
         potential_aggregator_ranks = list(range(max_potential_aggregators))
         
         # Initialize aggregator capabilities on all potential aggregator nodes
@@ -503,7 +503,6 @@ class RandomWalk:
                             state.cpu().detach().numpy())
             
             eval_process_active = Value('i', 2)  # Start as inactive for backup aggregators
-            eval_process = None
             if rank == 0:
                 eval_process_active.value = 1
             eval_process = Process(target=self.parent.evaluation_process, args=(
@@ -556,7 +555,7 @@ class AsyncGossip:
     def __init__(self, parent):
         self.parent = parent
 
-    def async_gossip_computation(self, rank, shared_arrays, shared_grads, comm_process_started, shared_state=None):
+    def async_gossip_computation(self, rank, shared_arrays, shared_grads, comm_process_started, shared_state=None, eval_process_active=None):
         torch.manual_seed(self.parent.config["seed"] + rank)
         np.random.seed(self.parent.config["seed"] + rank)
 
@@ -579,7 +578,28 @@ class AsyncGossip:
         end_time = start_time + self.parent.train_time * 60  # Convert minutes to seconds
         iteration = 0
 
+        failure_times = sorted(self.parent.failure_times)
+        failure = rank < len(failure_times)
+        stop_eval_time = start_time + failure_times[rank] * 60 if failure else None
+        start_eval_time = start_time if rank == 0 else (
+            start_time + failure_times[rank - 1] * 60 if rank - 1 < len(failure_times) else None
+        )
+
         while time.time() < end_time:
+            current_time = time.time()
+            current_minutes = (current_time - start_time) / 60.0
+
+            # Activate evaluation when previous rank fails
+            if eval_process_active is not None and start_eval_time is not None and eval_process_active.value == 2 and current_time >= start_eval_time:
+                logging.info(f"[Gossip Computation] Activating eval_process on Rank {rank} at {current_minutes:.2f} minutes (prev failure)")
+                eval_process_active.value = 1
+
+            # Deactivate evaluation at this rank's failure time
+            rank_failed = stop_eval_time is not None and current_time >= stop_eval_time
+            if eval_process_active is not None and rank_failed and eval_process_active.value == 1:
+                logging.info(f"[Gossip Computation] Deactivating eval_process on Rank {rank} at {current_minutes:.2f} minutes (rank failure)")
+                eval_process_active.value = 0
+
             logging.info(f"[Gossip Computation] Iteration {iteration} at Rank {rank}")
             for param, shared_array, shared_grad in zip(parameters, shared_arrays, shared_grads):
                 param_data = np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape)
@@ -588,14 +608,11 @@ class AsyncGossip:
 
             initial_params = [param.clone() for param in parameters]
 
-            # first = True
-            if True:#while (any(np.any(np.frombuffer(shared_grad.get_obj(), dtype=np.float32) != 0) for shared_grad in shared_grads) or first) and time.time() < end_time :
+            if not rank_failed:
                 logger.log_start("local sgd")
                 epoch, gradients = self.parent.local_sgd(task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, (time.time() - start_time), self.parent.tau)
                 logger.log_end("local sgd", {"rank": rank, "iteration": self.parent.tau, "epoch": epoch})
                 iteration += self.parent.tau
-                # first = False
-                # time.sleep(0.1)
 
             while any(np.any(np.frombuffer(shared_grad.get_obj(), dtype=np.float32) != 0) for shared_grad in
                           shared_grads) and time.time() < end_time:
@@ -604,13 +621,19 @@ class AsyncGossip:
             for param, initial_param, shared_grad in zip(parameters, initial_params, shared_grads):
                 grad_diff = param - initial_param
                 np.copyto(np.frombuffer(shared_grad.get_obj(), dtype=np.float32).reshape(param.shape), grad_diff.cpu().numpy())
-            if rank == 0:
+            if shared_state is not None:
                 for st, shared_array in zip(state, shared_state):
                     np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(st.shape), st.cpu().detach().numpy())
+
+        # Signal evaluation process to terminate
+        if eval_process_active is not None:
+            eval_process_active.value = 0
 
     def async_gossip_communication_active_send(self, rank, shared_arrays, shared_grads, comm_process_started, activate_recv, recv_arrays):
         backend = 'gloo'#nccl' if torch.cuda.is_available() else 'gloo'
         self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[0], self.parent.group_names[0])
+        dist.barrier()
+        logging.info(f"[Gossip Active] Rank {rank} barrier passed")
         with self.parent.lock:
             comm_process_started.value += 1
 
@@ -624,8 +647,9 @@ class AsyncGossip:
             param.data = torch.from_numpy(param_data).to(device)
 
         shapes = [param.shape for param in model.parameters()]
-
+        
         while True:
+            
             for param, shared_grad in zip(model.parameters(), shared_grads):
                 grad_data = np.frombuffer(shared_grad.get_obj(), dtype=np.float32).reshape(param.shape)
                 if not np.all(grad_data == 0):
@@ -661,7 +685,8 @@ class AsyncGossip:
     def async_gossip_communication_active_recv(self, rank, comm_process_started, activate_recv, recv_arrays):
         backend = 'gloo'#nccl' if torch.cuda.is_available() else 'gloo'
         self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[1], self.parent.group_names[1])
-
+        dist.barrier()
+        logging.info(f"[Gossip Passive] Rank {rank} barrier passed")
         with self.parent.lock:
             comm_process_started.value += 1
 
@@ -692,6 +717,8 @@ class AsyncGossip:
     def async_gossip_communication_passive_recv(self, rank, shared_arrays, shared_grads, comm_process_started, activate_recv):
         backend = 'gloo'#'nccl' if torch.cuda.is_available() else 'gloo'
         self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[0], self.parent.group_names[0])
+        dist.barrier()
+        logging.info(f"[Gossip Passive] Rank {rank} barrier passed")
         with self.parent.lock:
             comm_process_started.value += 1
 
@@ -760,6 +787,8 @@ class AsyncGossip:
     def async_gossip_communication_passive_send(self, rank, shared_arrays, shared_grads, comm_process_started, activate_recv):
         backend = 'gloo'  # 'nccl' if torch.cuda.is_available() else 'gloo'
         self.parent.init_process(rank, self.parent.size, backend, self.parent.ports[1], self.parent.group_names[1])
+        dist.barrier()
+        logging.info(f"[Gossip Passive] Rank {rank} barrier passed")
         with self.parent.lock:
             comm_process_started.value += 1
 
@@ -818,10 +847,18 @@ class AsyncGossip:
             recv_comm_process = Process(target=self.async_gossip_communication_passive_recv,
                                         args=(rank, shared_arrays, shared_grads, comm_process_started, activate_recv))
 
-        if rank == 0:
+        # Allow evaluation on any rank up to the number of potential failures (inclusive)
+        max_potential_failures = min(self.parent.size, len(self.parent.failure_times) + 1)
+        is_potential_eval_rank = rank < max_potential_failures
+
+        shared_state = None
+        eval_process = None
+        eval_process_active = None
+
+        if is_potential_eval_rank:
             shared_state = [Array('f', state.numel(), lock=True) for state in model.buffers()]
-            eval_process_active = Value('i', 1)
-            compute_process = Process(target=self.async_gossip_computation, args=(rank, shared_arrays, shared_grads, comm_process_started, shared_state))
+            eval_process_active = Value('i', 1 if rank == 0 else 2)
+            compute_process = Process(target=self.async_gossip_computation, args=(rank, shared_arrays, shared_grads, comm_process_started, shared_state, eval_process_active))
             eval_process = Process(target=self.parent.evaluation_process, args=(self.parent.eval_gpu, shared_arrays, shared_state, eval_process_active))
             eval_process.start()
         else:
@@ -835,7 +872,7 @@ class AsyncGossip:
         send_comm_process.terminate()
         recv_comm_process.terminate()
 
-        if rank == 0:
+        if eval_process is not None:
             eval_process_active.value = 0
             eval_process.join()
 
