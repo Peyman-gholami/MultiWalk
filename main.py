@@ -87,9 +87,18 @@ if __name__ == "__main__":
     master_address = MASTER_ADDR
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
-    specific_keys = ['graph', 'train_time', 'learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio']  # Replace these with your specific keys
-    log_name = f'full_dup_size={size}_rank={rank}_rw={len(args.group_names)}' + '_'.join(
-        [f'{key}={value}' for key, value in vars(args).items() if key in specific_keys])
+    specific_keys = ['graph', 'train_time', 'learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio', 'failure_times']  # Replace these with your specific keys
+    log_name_parts = []
+    for key, value in vars(args).items():
+        if key in specific_keys:
+            if isinstance(value, list):
+                if value:
+                    log_name_parts.append(f'{key}=[{",".join(map(str, value))}]')
+                else:
+                    log_name_parts.append(f'{key}=[]')
+            else:
+                log_name_parts.append(f'{key}={value}')
+    log_name = f'full_dup_size={size}_rank={rank}_rw={len(args.group_names)}' + '_'.join(log_name_parts)
     if args.algorithm == 'async_gossip':
         output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
     else:
