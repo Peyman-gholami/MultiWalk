@@ -620,16 +620,18 @@ class AsyncGossip:
                 logger.log_end("local sgd", {"rank": rank, "iteration": self.parent.tau, "epoch": epoch})
                 iteration += self.parent.tau
 
-            while any(np.any(np.frombuffer(shared_grad.get_obj(), dtype=np.float32) != 0) for shared_grad in
-                          shared_grads) and time.time() < end_time:
-                time.sleep(0.01)
+                while any(np.any(np.frombuffer(shared_grad.get_obj(), dtype=np.float32) != 0) for shared_grad in
+                            shared_grads) and time.time() < end_time:
+                    time.sleep(0.01)
 
-            for param, initial_param, shared_grad in zip(parameters, initial_params, shared_grads):
-                grad_diff = param - initial_param
-                np.copyto(np.frombuffer(shared_grad.get_obj(), dtype=np.float32).reshape(param.shape), grad_diff.cpu().numpy())
-            if shared_state is not None:
-                for st, shared_array in zip(state, shared_state):
-                    np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(st.shape), st.cpu().detach().numpy())
+                for param, initial_param, shared_grad in zip(parameters, initial_params, shared_grads):
+                    grad_diff = param - initial_param
+                    np.copyto(np.frombuffer(shared_grad.get_obj(), dtype=np.float32).reshape(param.shape), grad_diff.cpu().numpy())
+                if shared_state is not None:
+                    for st, shared_array in zip(state, shared_state):
+                        np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(st.shape), st.cpu().detach().numpy())
+            else:
+                time.sleep(5)
 
         # Signal evaluation process to terminate
         if eval_process_active is not None:
