@@ -441,12 +441,15 @@ class RandomWalk:
 
                         notification = torch.tensor(rank, dtype=torch.int32).to(device)
                         dist.send(tensor=notification, dst=next_rank)
-
-                        logger.log_start("communication")
+m   
+X 
+                        if not rank >= current_aggregator_rank:
+                            logger.log_start("communication")
                         buffer = pack(parameters)
                         dist.send(tensor=buffer, dst=next_rank)
                         bytes_sent = num_bytes(buffer)
-                        logger.log_end("communication", {"rw": group_name, "from": rank, "to": next_rank, "bytes_sent": bytes_sent})
+                        if not r ank >= current_aggregator_rank:
+                            logger.log_end("communication", {"rw": group_name, "from": rank, "to": next_rank, "bytes_sent": bytes_sent})
                 else:
                     for param, queue_param in zip(parameters, queue[rw]):
                         np.copyto(np.frombuffer(queue_param.get_obj(), dtype=np.float32).reshape(param.shape),
@@ -631,7 +634,7 @@ class AsyncGossip:
                     for st, shared_array in zip(state, shared_state):
                         np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(st.shape), st.cpu().detach().numpy())
             else:
-                time.sleep(5)
+                time.sleep(10)
 
         # Signal evaluation process to terminate
         if eval_process_active is not None:
@@ -656,7 +659,36 @@ class AsyncGossip:
 
         shapes = [param.shape for param in model.parameters()]
         
+        # Initialize active neighbors list and track failures
+        active_neighbors = list(self.parent.neighbors[rank])
+        start_time = time.time()
+        failure_times = sorted(self.parent.failure_times)
+        rank_failed = rank < len(failure_times)
+        stop_time = start_time + failure_times[rank] * 60 if rank_failed else None
+        
         while True:
+            current_time = time.time()
+            current_minutes = (current_time - start_time) / 60.0
+            
+            # Check if this node has failed - if so, stop sending
+            if stop_time is not None and current_time >= stop_time:
+                logging.info(f"[Gossip Active] Rank {rank} has failed at {current_minutes:.2f} minutes, stopping communication")
+                time.sleep(10)
+                continue
+            
+            # Remove failed neighbors from the active list
+            for i, neighbor in enumerate(active_neighbors[:]):  # Use slice copy to iterate safely
+                if neighbor < len(failure_times):
+                    neighbor_failure_time = failure_times[neighbor] * 60
+                    if current_time >= start_time + neighbor_failure_time:
+                        active_neighbors.remove(neighbor)
+                        logging.info(f"[Gossip Active] Rank {rank} removed failed neighbor {neighbor} from active list at {current_minutes:.2f} minutes")
+            
+            # If no active neighbors, skip communication
+            if not active_neighbors:
+                logging.info(f"[Gossip Active] Rank {rank} has no active neighbors, skipping communication")
+                time.sleep(10)  # Small sleep to avoid busy waiting
+                continue
             
             for param, shared_grad in zip(model.parameters(), shared_grads):
                 grad_data = np.frombuffer(shared_grad.get_obj(), dtype=np.float32).reshape(param.shape)
@@ -664,7 +696,7 @@ class AsyncGossip:
                     param.data += torch.from_numpy(grad_data).to(device)
                     grad_data.fill(0)
 
-            neighbor = random.choice(self.parent.neighbors[rank])
+            neighbor = random.choice(active_neighbors)
             logging.info(f"[Gossip Active] Rank {rank} notifying and sending model with Rank {neighbor}")
 
             notification = torch.tensor(rank, dtype=torch.int32).to(device)
