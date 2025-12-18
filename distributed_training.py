@@ -441,14 +441,13 @@ class RandomWalk:
 
                         notification = torch.tensor(rank, dtype=torch.int32).to(device)
                         dist.send(tensor=notification, dst=next_rank)
-m   
-X 
+
                         if not rank >= current_aggregator_rank:
                             logger.log_start("communication")
                         buffer = pack(parameters)
                         dist.send(tensor=buffer, dst=next_rank)
                         bytes_sent = num_bytes(buffer)
-                        if not r ank >= current_aggregator_rank:
+                        if not rank >= current_aggregator_rank:
                             logger.log_end("communication", {"rw": group_name, "from": rank, "to": next_rank, "bytes_sent": bytes_sent})
                 else:
                     for param, queue_param in zip(parameters, queue[rw]):
