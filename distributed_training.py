@@ -442,12 +442,12 @@ class RandomWalk:
                         notification = torch.tensor(rank, dtype=torch.int32).to(device)
                         dist.send(tensor=notification, dst=next_rank)
 
-                        if not rank >= current_aggregator_rank:
+                        if rank >= current_aggregator_rank:
                             logger.log_start("communication")
                         buffer = pack(parameters)
                         dist.send(tensor=buffer, dst=next_rank)
                         bytes_sent = num_bytes(buffer)
-                        if not rank >= current_aggregator_rank:
+                        if rank >= current_aggregator_rank:
                             logger.log_end("communication", {"rw": group_name, "from": rank, "to": next_rank, "bytes_sent": bytes_sent})
                 else:
                     for param, queue_param in zip(parameters, queue[rw]):
@@ -623,7 +623,7 @@ class AsyncGossip:
                 iteration += self.parent.tau
 
                 while any(np.any(np.frombuffer(shared_grad.get_obj(), dtype=np.float32) != 0) for shared_grad in
-                            shared_grads) and time.time() < end_time:
+                            shared_grads) and time.time() < end_time and (time.time() - start_time) / 60.0 < stop_eval_time:
                     time.sleep(0.01)
 
                 for param, initial_param, shared_grad in zip(parameters, initial_params, shared_grads):
