@@ -623,7 +623,7 @@ class AsyncGossip:
                 iteration += self.parent.tau
 
                 while any(np.any(np.frombuffer(shared_grad.get_obj(), dtype=np.float32) != 0) for shared_grad in
-                            shared_grads) and time.time() < end_time and (stop_eval_time is None or (time.time() - start_time) / 60.0 < stop_eval_time):
+                            shared_grads) and time.time() < end_time and (stop_eval_time is None or time.time() < stop_eval_time):
                     time.sleep(0.01)
 
                 for param, initial_param, shared_grad in zip(parameters, initial_params, shared_grads):
