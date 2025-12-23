@@ -28,8 +28,8 @@ from logger import EventLogger
 
 # set_start_method('spawn', force=True)
 
-# logging.basicConfig(level=logging.CRITICAL)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.CRITICAL)
+# logging.basicConfig(level=logging.INFO)
 
 
 
@@ -434,7 +434,7 @@ class RandomWalk:
                         param.data = torch.from_numpy(param_data).to(device)
 
                 logging.info(f"[{group_name}] Rank {rank} sending model to Rank {next_rank}")
-                
+
                 if next_rank != rank:
                     with self.parent.lock_comm_send:
                         logging.info(f"[{group_name}]  Rank {rank} notifying and exchanging model with Rank {next_rank}")
