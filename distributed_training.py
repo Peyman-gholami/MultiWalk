@@ -425,7 +425,6 @@ class RandomWalk:
 
                             shared_array_index.value = rw
 
-                    logging.info(f"[{group_name}] Rank {rank} sending model to Rank {next_rank}")
 
                 else:
                     logging.info(f"[{group_name}] Rank {rank} acting as relay, forwarding model to Rank {next_rank}")
@@ -434,7 +433,8 @@ class RandomWalk:
                         param_data = np.frombuffer(queue_param.get_obj(), dtype=np.float32).reshape(param.shape)
                         param.data = torch.from_numpy(param_data).to(device)
 
-
+                logging.info(f"[{group_name}] Rank {rank} sending model to Rank {next_rank}")
+                
                 if next_rank != rank:
                     with self.parent.lock_comm_send:
                         logging.info(f"[{group_name}]  Rank {rank} notifying and exchanging model with Rank {next_rank}")
