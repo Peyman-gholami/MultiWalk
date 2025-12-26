@@ -428,7 +428,7 @@ class RandomWalk:
 
                 else:
                     logging.info(f"[{group_name}] Rank {rank} acting as relay, forwarding model to Rank {next_rank}")
-                    
+                    print("Problem why am I here?????")
                     # for param, queue_param in zip(parameters, queue[rw]):
                     #     param_data = np.frombuffer(queue_param.get_obj(), dtype=np.float32).reshape(param.shape)
                     #     param.data = torch.from_numpy(param_data).to(device)
