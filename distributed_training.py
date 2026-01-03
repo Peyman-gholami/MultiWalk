@@ -353,7 +353,7 @@ class RandomWalk:
         dist.barrier()
         logging.info(f"[{group_name}] Rank {rank} barrier passed")
         with self.parent.lock:
-            comm_process_started.value = +1
+            comm_process_started.value += 1
 
         start_time = time.time()
         failure_times = sorted(self.parent.failure_times)  # Sort failure times
@@ -973,7 +973,7 @@ class SplitRandomWalk:
         )
 
 
-        while comm_process_started.value == self.parent.size: #wait for communication process to start
+        while comm_process_started.value != len(self.parent.group_names): #wait for communication process to start
             logging.info(f"[Computation] wait at Rank {rank}")
             time.sleep(0.5)
 
@@ -1103,7 +1103,7 @@ class SplitRandomWalk:
         current_rank = start_rank
 
         with self.parent.lock:
-            comm_process_started.value = +1
+            comm_process_started.value += 1
 
         # start_time = time.time()
         # end_time = start_time + self.parent.train_time * 60  # Convert minutes to seconds
