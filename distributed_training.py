@@ -267,7 +267,7 @@ class RandomWalk:
         )
 
 
-        while comm_process_started.value == self.parent.size: #wait for communication process to start
+        while comm_process_started.value != self.parent.size: #wait for communication process to start
             logging.info(f"[Computation] wait at Rank {rank}")
             time.sleep(0.5)
 
