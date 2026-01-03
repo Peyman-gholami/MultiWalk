@@ -28,8 +28,8 @@ from logger import EventLogger
 
 # set_start_method('spawn', force=True)
 
-logging.basicConfig(level=logging.CRITICAL)
-# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.CRITICAL)
+logging.basicConfig(level=logging.INFO)
 
 
 
@@ -268,7 +268,7 @@ class RandomWalk:
 
 
         while comm_process_started.value != len(self.parent.group_names): #wait for communication process to start
-            logging.info(f"[Computation] wait at Rank {rank}")
+            logging.info(f"[Computation] wait at Rank {rank} - {comm_process_started.value} already started out of {len(self.parent.group_names)}")
             time.sleep(0.5)
 
         start_time = time.time()
