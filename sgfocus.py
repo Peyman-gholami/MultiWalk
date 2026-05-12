@@ -203,7 +203,12 @@ class SGFocus:
                 # Update local parameters with global model
                 for local_param, global_param in zip(parameters, global_params):
                     local_param.data = global_param.clone()
-                
+
+                # Algorithm 2, line 1 / line 5: y_{0,i}^{(r)} <- 0 and the "past" stochastic gradient
+                # used in the first local step must match a fresh round (not stale from pre-pull x).
+                for pg in prev_stochastic_grad:
+                    pg.zero_()
+
                 # Initialize y_0,i = 0 for the current round
                 y_i = [torch.zeros_like(p).to(training_device) for p in parameters]
 
