@@ -12,24 +12,20 @@ from utils.communication import (
     unpack,
     num_bytes
 )
-from utils.tools import (
-    load_from_shared
-)
 from logger import EventLogger
 
 
 class Scaffold:
     def __init__(self, parent):
         self.parent = parent
-        # SCAFFOLD specific parameters
-        self.participation_rate = parent.config.get('participation_rate', 0.1)  # Fraction of clients per round
-        self.min_clients = max(1, int(self.participation_rate * (parent.size - 1)))  # At least 1 client
+        # FedAVG specific parameters
+        self.participation_rate = parent.config.get('participation_rate', 1)  # Fraction of clients per round
         self.global_learning_rate = parent.config.get('global_learning_rate', 1.0) # Global learning rate for SCAFFOLD
 
     def select_participating_clients(self, round_number, total_clients):
         """Return the actual ranks of selected participating clients for current round"""
         torch.manual_seed(self.parent.config["seed"] + round_number)
-        num_participants = max(self.min_clients, int(self.participation_rate * total_clients))
+        num_participants = max(1, int(self.participation_rate * total_clients)) # At least 1 client
         # Client ranks are from 1 to total_clients (server is rank 0)
         participant_indices = torch.randperm(total_clients)[:num_participants].tolist()
         participating_client_ranks = [idx + 1 for idx in participant_indices]  # Actual distributed ranks
@@ -37,10 +33,7 @@ class Scaffold:
 
     def send_to_clients(self, participating_clients, global_parameters, global_control_variates, device, logger, round_number, server_rank):
         """Send global model and control variates to all participating clients separately"""
-        # Determine which client should send state (first participating client)
-        designated_state_sender = participating_clients[0] if participating_clients else None
-
-        # Send notifications to all clients
+        # Send notifications to all clients (same codes as FedAvg: 1 = train this round, 0 = skip)
         notification_requests = []
         for client_rank in range(1, self.parent.size):
             if client_rank not in participating_clients:
@@ -48,8 +41,7 @@ class Scaffold:
                 notification_requests.append(dist.isend(tensor=no_training_signal, dst=client_rank))
                 logging.info(f"[SCAFFOLD Server] Round {round_number}, notifications sent to rank {client_rank}!")
             else:
-                # Send notification with state sender info: 1 = start training, 2 = start training + send state
-                training_notification = torch.tensor(2, dtype=torch.int32).to(device)
+                training_notification = torch.tensor(1, dtype=torch.int32).to(device)
                 notification_requests.append(dist.isend(tensor=training_notification, dst=client_rank))
                 logging.info(f"[SCAFFOLD Server] Round {round_number}, notifications sent to rank {client_rank}!")
 
@@ -123,7 +115,7 @@ class Scaffold:
 
         return client_updates
 
-    def server_process(self, server_rank, shared_parameter_arrays, shared_state_arrays):
+    def server_process(self, server_rank, shared_parameter_arrays):
         """SCAFFOLD Server process (rank 0) - handles aggregation and client coordination"""
         torch.manual_seed(self.parent.config["seed"])
         np.random.seed(self.parent.config["seed"])
@@ -133,7 +125,6 @@ class Scaffold:
         # Initialize global model
         global_model = self.parent.create_model()
         global_parameters = [param.to(communication_device) for param in global_model.parameters()]
-        global_state = [state.to(communication_device) for state in global_model.buffers()]
 
         # Initialize global control variates (initialized to zeros)
         global_control_variates = [torch.zeros_like(param).to(communication_device) for param in global_parameters]
@@ -158,35 +149,6 @@ class Scaffold:
             # Receive updates from participating clients
             client_updates = self.receive_from_clients(participating_clients, global_parameters)
 
-            # Receive state from all participating clients using non-blocking irecv and average
-            if participating_clients:
-                logging.info(f"[SCAFFOLD Server] Round {current_round}, receiving and averaging state from clients {participating_clients}")
-                # Accumulate in float to avoid dtype conflicts (e.g., Long buffers like num_batches_tracked)
-                accumulated_state = [torch.zeros_like(state_param, dtype=torch.float32).to(communication_device) for state_param in global_state]
-                # Initiate non-blocking receives
-                state_receive_info = []
-                for sender_rank in participating_clients:
-                    state_buffer = torch.zeros_like(pack(global_state))
-                    state_request = dist.irecv(tensor=state_buffer, src=sender_rank)
-                    state_receive_info.append((state_request, state_buffer, sender_rank))
-
-                # Wait for all and accumulate
-                for state_request, state_buffer, sender_rank in state_receive_info:
-                    state_request.wait()
-                    received_client_state = unpack(state_buffer, [state.shape for state in global_state])
-                    for acc_param, client_state_param in zip(accumulated_state, received_client_state):
-                        acc_param.data += client_state_param.to(communication_device, dtype=torch.float32)
-
-                num_senders = len(participating_clients)
-                for global_state_param, acc_param in zip(global_state, accumulated_state):
-                    averaged = acc_param / num_senders
-                    if torch.is_floating_point(global_state_param):
-                        global_state_param.data = averaged.to(dtype=global_state_param.dtype)
-                    else:
-                        # For integer buffers, round before casting back
-                        global_state_param.data = torch.round(averaged).to(dtype=global_state_param.dtype)
-
-
             # Aggregate parameter differences and update global parameters in place
             for client_rank, updates in client_updates.items():
                 parameter_difference = updates["parameter_difference"]
@@ -204,11 +166,6 @@ class Scaffold:
             for param, shared_array in zip(global_parameters, shared_parameter_arrays):
                 np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
                          param.cpu().detach().numpy())
-
-            for state_param, shared_state_array in zip(global_state, shared_state_arrays):
-                np.copyto(np.frombuffer(shared_state_array.get_obj(), dtype=np.float32).reshape(state_param.shape),
-                         state_param.cpu().detach().numpy())
-
 
             current_round += 1
             dist.barrier()
@@ -265,7 +222,7 @@ class Scaffold:
                 break
             elif notification.item() == 0:  # End training
                  dist.barrier()
-            elif notification.item() in [1,2]:  # Start training
+            elif notification.item() == 1:  # Start training
 
                 # Receive global model from server
                 logging.info(f"[SCAFFOLD Client {client_rank}] receiveing the model!")
@@ -324,15 +281,6 @@ class Scaffold:
                 bytes_sent = num_bytes(client_control_variate_update_buffer)
                 event_logger.log_end("communication", {"from": client_rank, "to": 0, "bytes_sent": bytes_sent})
 
-
-                if notification.item() == 2:  # Start training + send state
-                    # Send state to server (only this client sends state)
-                    logging.info(f"[SCAFFOLD Client {client_rank}] sending state to server!")
-                    buffer = pack(state).to(comm_device)
-                    dist.send(tensor=buffer, dst=0)
-                    bytes_sent = num_bytes(buffer)
-                    logging.info(f"[SCAFFOLD Client {client_rank}] state sent to server!")
-
                 dist.barrier()
 
         dist.barrier()
@@ -345,21 +293,17 @@ class Scaffold:
         model = self.parent.create_model()
         if rank == 0:
             shared_arrays = [Array('f', param.numel(), lock=True) for param in model.parameters()]
-            shared_state = [Array('f', state.numel(), lock=True) for state in model.buffers()]
 
-            # Initialize shared arrays for parameters and state (control variates are initialized to zeros)
             for param, shared_array in zip(model.parameters(), shared_arrays):
                 np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
                         param.cpu().detach().numpy())
 
             eval_process_active = Value('i', 1)
-            # Server process
             eval_process = Process(target=self.parent.evaluation_process,
-                                 args=(self.parent.eval_gpu, shared_arrays, shared_state, eval_process_active, None))
+                                 args=(self.parent.eval_gpu, shared_arrays, None, eval_process_active, None))
             eval_process.start()
 
-            # Corrected variable name from server_process to server_process_func to avoid shadowing
-            server_process_func = Process(target=self.server_process, args=(rank, shared_arrays, shared_state))
+            server_process_func = Process(target=self.server_process, args=(rank, shared_arrays))
             server_process_func.start()
             server_process_func.join()
             eval_process_active.value = 0
@@ -389,7 +333,7 @@ class HUScaffold(Scaffold):
         return client_updates
 
 
-    def server_process(self, server_rank, shared_parameter_arrays, shared_state_arrays):
+    def server_process(self, server_rank, shared_parameter_arrays):
         """HUSCAFFOLD Server process (rank 0) - handles aggregation and client coordination"""
         torch.manual_seed(self.parent.config["seed"])
         np.random.seed(self.parent.config["seed"])
@@ -399,7 +343,6 @@ class HUScaffold(Scaffold):
         # Initialize global model
         global_model = self.parent.create_model()
         global_parameters = [param.to(communication_device) for param in global_model.parameters()]
-        global_state = [state.to(communication_device) for state in global_model.buffers()]
 
         # Initialize global control variates (initialized to zeros)
         global_control_variates = [torch.zeros_like(param).to(communication_device) for param in global_parameters]
@@ -424,21 +367,6 @@ class HUScaffold(Scaffold):
             # Receive updates from participating clients
             client_updates = self.receive_from_clients(participating_clients, global_parameters)
 
-            # Receive state from only one participating client (the first one)
-            if participating_clients:
-                designated_state_sender = participating_clients[0]  # Choose the first participating client
-                logging.info(f"[HUSCAFFOLD Server] Round {current_round}, receiving state from client {designated_state_sender}")
-
-                # Receive state from the selected client
-                state_buffer = torch.zeros_like(pack(global_state))
-                dist.recv(tensor=state_buffer, src=designated_state_sender)
-                received_client_state = unpack(state_buffer, [state.shape for state in global_state])
-
-                # Set the global state from the selected client
-                for global_state_param, client_state_param in zip(global_state, received_client_state):
-                    global_state_param.data = client_state_param.to(communication_device)
-
-
             # Aggregate parameter differences and update global parameters in place
             time_for_lr_schedule = time.time() - training_start_time
             local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
@@ -457,11 +385,6 @@ class HUScaffold(Scaffold):
             for param, shared_array in zip(global_parameters, shared_parameter_arrays):
                 np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
                          param.cpu().detach().numpy())
-
-            for state_param, shared_state_array in zip(global_state, shared_state_arrays):
-                np.copyto(np.frombuffer(shared_state_array.get_obj(), dtype=np.float32).reshape(state_param.shape),
-                         state_param.cpu().detach().numpy())
-
 
             current_round += 1
             dist.barrier()
@@ -518,7 +441,7 @@ class HUScaffold(Scaffold):
                 break
             elif notification.item() == 0:  # End training
                  dist.barrier()
-            elif notification.item() in [1,2]:  # Start training
+            elif notification.item() == 1:  # Start training
 
                 # Receive global model from server
                 logging.info(f"[HUSCAFFOLD Client {client_rank}] receiveing the model!")
@@ -568,16 +491,6 @@ class HUScaffold(Scaffold):
                 bytes_sent = num_bytes(delta_buffer)
                 event_logger.log_end("communication", {"from": client_rank, "to": 0, "bytes_sent": bytes_sent})
 
-
-
-                if notification.item() == 2:  # Start training + send state
-                    # Send state to server (only this client sends state)
-                    logging.info(f"[HUSCAFFOLD Client {client_rank}] sending state to server!")
-                    buffer = pack(state).to(comm_device)
-                    dist.send(tensor=buffer, dst=0)
-                    bytes_sent = num_bytes(buffer)
-                    logging.info(f"[HUSCAFFOLD Client {client_rank}] state sent to server!")
-
                 dist.barrier()
 
         dist.barrier()
@@ -589,10 +502,6 @@ class HUScaffold(Scaffold):
 class HScaffold(Scaffold):
     def send_to_clients(self, participating_clients, global_parameters, device, logger, round_number, server_rank):
         """Send global model to all participating clients separately"""
-        # Determine which client should send state (first participating client)
-        designated_state_sender = participating_clients[0] if participating_clients else None
-
-        # Send notifications to all clients
         notification_requests = []
         for client_rank in range(1, self.parent.size):
             if client_rank not in participating_clients:
@@ -600,9 +509,7 @@ class HScaffold(Scaffold):
                 notification_requests.append(dist.isend(tensor=no_training_signal, dst=client_rank))
                 logging.info(f"[HSCAFFOLD Server] Round {round_number}, notifications sent to rank {client_rank}!")
             else:
-                # Send notification with state sender info: 1 = start training, 2 = start training + send state
-                training_signal = 2 #if client_rank == designated_state_sender else 1
-                training_notification = torch.tensor(training_signal, dtype=torch.int32).to(device)
+                training_notification = torch.tensor(1, dtype=torch.int32).to(device)
                 notification_requests.append(dist.isend(tensor=training_notification, dst=client_rank))
                 logging.info(f"[HSCAFFOLD Server] Round {round_number}, notifications sent to rank {client_rank}!")
 
@@ -644,7 +551,7 @@ class HScaffold(Scaffold):
         
         return client_updates
 
-    def server_process(self, server_rank, shared_parameter_arrays, shared_state_arrays):
+    def server_process(self, server_rank, shared_parameter_arrays):
         """HSCAFFOLD Server process (rank 0) - handles aggregation and client coordination"""
         torch.manual_seed(self.parent.config["seed"])
         np.random.seed(self.parent.config["seed"])
@@ -654,7 +561,6 @@ class HScaffold(Scaffold):
         # Initialize global model
         global_model = self.parent.create_model()
         global_parameters = [param.to(communication_device) for param in global_model.parameters()]
-        global_state = [state.to(communication_device) for state in global_model.buffers()]
 
         # Initialize communication
         communication_backend = 'gloo'  # Use gloo for CPU communication
@@ -675,35 +581,6 @@ class HScaffold(Scaffold):
             # Receive updates from participating clients
             client_updates = self.receive_from_clients(participating_clients, global_parameters)
 
-            # Receive state from only one participating client (the first one)
-            if participating_clients:
-                logging.info(f"[SCAFFOLD Server] Round {current_round}, receiving and averaging state from clients {participating_clients}")
-                # Accumulate in float to avoid dtype conflicts (e.g., Long buffers like num_batches_tracked)
-                accumulated_state = [torch.zeros_like(state_param, dtype=torch.float32).to(communication_device) for state_param in global_state]
-                # Initiate non-blocking receives
-                state_receive_info = []
-                for sender_rank in participating_clients:
-                    state_buffer = torch.zeros_like(pack(global_state))
-                    state_request = dist.irecv(tensor=state_buffer, src=sender_rank)
-                    state_receive_info.append((state_request, state_buffer, sender_rank))
-
-                # Wait for all and accumulate
-                for state_request, state_buffer, sender_rank in state_receive_info:
-                    state_request.wait()
-                    received_client_state = unpack(state_buffer, [state.shape for state in global_state])
-                    for acc_param, client_state_param in zip(accumulated_state, received_client_state):
-                        acc_param.data += client_state_param.to(communication_device, dtype=torch.float32)
-
-                num_senders = len(participating_clients)
-                for global_state_param, acc_param in zip(global_state, accumulated_state):
-                    averaged = acc_param / num_senders
-                    if torch.is_floating_point(global_state_param):
-                        global_state_param.data = averaged.to(dtype=global_state_param.dtype)
-                    else:
-                        # For integer buffers, round before casting back
-                        global_state_param.data = torch.round(averaged).to(dtype=global_state_param.dtype)
-
-
             # Aggregate parameter differences and update global parameters in place
             for client_rank, updates in client_updates.items():
                 parameter_difference = updates["parameter_difference"]
@@ -714,11 +591,6 @@ class HScaffold(Scaffold):
             for param, shared_array in zip(global_parameters, shared_parameter_arrays):
                 np.copyto(np.frombuffer(shared_array.get_obj(), dtype=np.float32).reshape(param.shape),
                          param.cpu().detach().numpy())
-
-            for state_param, shared_state_array in zip(global_state, shared_state_arrays):
-                np.copyto(np.frombuffer(shared_state_array.get_obj(), dtype=np.float32).reshape(state_param.shape),
-                         state_param.cpu().detach().numpy())
-
 
             current_round += 1
             dist.barrier()
@@ -778,7 +650,7 @@ class HScaffold(Scaffold):
                 break
             elif notification.item() == 0:  # End training
                  dist.barrier()
-            elif notification.item() in [1,2]:  # Start training
+            elif notification.item() == 1:  # Start training
 
                 # Receive global model from server
                 logging.info(f"[HSCAFFOLD Client {client_rank}] receiveing the model!")
@@ -830,15 +702,6 @@ class HScaffold(Scaffold):
                 dist.send(tensor=param_diff_buffer, dst=0)
                 bytes_sent = num_bytes(param_diff_buffer)
                 event_logger.log_end("communication", {"from": client_rank, "to": 0, "bytes_sent": bytes_sent})
-
-
-                if notification.item() == 2:  # Start training + send state
-                    # Send state to server (only this client sends state)
-                    logging.info(f"[HSCAFFOLD Client {client_rank}] sending state to server!")
-                    buffer = pack(state).to(comm_device)
-                    dist.send(tensor=buffer, dst=0)
-                    bytes_sent = num_bytes(buffer)
-                    logging.info(f"[HSCAFFOLD Client {client_rank}] state sent to server!")
 
                 dist.barrier()
             current_round += 1
