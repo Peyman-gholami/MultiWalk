@@ -204,10 +204,10 @@ class SGFocus:
                 for local_param, global_param in zip(parameters, global_params):
                     local_param.data = global_param.clone()
 
-                # Algorithm 2, line 1 / line 5: y_{0,i}^{(r)} <- 0 and the "past" stochastic gradient
-                # used in the first local step must match a fresh round (not stale from pre-pull x).
-                for pg in prev_stochastic_grad:
-                    pg.zero_()
+                # y_{0,i}^{(r)} <- 0 each round (Alg. 2). The subtracted "previous" stochastic gradient
+                # ∇f_i(x_{t-1,i}^{(r)}; ξ_{t-1}) is stored in prev_stochastic_grad: for t=0 it is the
+                # gradient from the end of the worker's last participating round (paper text after (22)),
+                # so we do not reset prev_stochastic_grad here.
 
                 # Initialize y_0,i = 0 for the current round
                 y_i = [torch.zeros_like(p).to(training_device) for p in parameters]
