@@ -6,6 +6,7 @@ import numpy as np
 from torch.multiprocessing import Process, Array, Value, Lock
 import time
 from tasks.api import Task
+from base_optimizers import configure_base_optimizer
 from utils.communication import (
     pack,
     unpack,
@@ -163,6 +164,15 @@ class SGFocus:
         # Initialize task and model
         training_task = self.parent.configure_task(client_rank, training_device)
         parameters, state = training_task.initialize(self.parent.config["seed"])
+        # SG-FOCUS local step configuration: plain SGD behavior
+        # (momentum = 0, weight_decay = 0 for this algorithm).
+        sgfocus_optimizer_config = dict(self.parent.config)
+        sgfocus_optimizer_config["momentum"] = 0.0
+        sgfocus_optimizer_config["weight_decay"] = 0.0
+        base_optimizer = configure_base_optimizer(sgfocus_optimizer_config)
+        base_optimizer_state = base_optimizer.init(parameters)
+        if hasattr(training_task, "_weight_decay_per_param"):
+            training_task._weight_decay_per_param = [0.0 for _ in training_task._weight_decay_per_param]
         # Initialize previous stochastic gradient for local updates
         prev_stochastic_grad = [torch.zeros_like(param).to(training_device) for param in parameters]
         # # Initialize y
@@ -215,20 +225,32 @@ class SGFocus:
                 event_logger.log_start("local sgd")
                 
                 for step in range(self.parent.tau):
-                    # Compute stochastic gradient without applying optimizer.step().
-                    # SG-FOCUS local dynamics should only use x <- x - eta * y.
-                    epoch, batch = next(batch_data_gen)
-                    _, current_stochastic_grad, state = training_task.loss_and_gradient(parameters, state, batch)
                     time_for_lr_schedule = time.time() - training_start_time
+                    local_lr = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
+                    # Use the shared local step method for gradient computation + parameter update.
+                    # Base optimizer is configured above with momentum=0 and weight_decay=0.
+                    epoch, current_stochastic_grad = self.parent.local_sgd(
+                        training_task,
+                        parameters,
+                        state,
+                        base_optimizer,
+                        base_optimizer_state,
+                        batch_data_gen,
+                        time_for_lr_schedule,
+                        1,
+                    )
+                    prev_y_i = [y.clone() for y in y_i]
                     # y_{t+1,i} = y_{t,i} + current_grad - prev_grad
                     for y, current_grad, prev_grad in zip(y_i, current_stochastic_grad, prev_stochastic_grad):
                         y.data += current_grad - prev_grad
 
-                    # x_{t+1,i} = x_{t,i} - eta * y_{t+1,i}
-                    local_lr = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
-                    for param, y_val in zip(parameters, y_i):
-                        param.data -= local_lr * y_val
-                    
+                    # local_sgd already applied: x <- x - eta * current_grad.
+                    # Add correction to recover SG-FOCUS update x <- x - eta * y_{t+1}:
+                    # correction = +eta * prev_grad - eta * y_t.
+                    for param, prev_grad, prev_y in zip(parameters, prev_stochastic_grad, prev_y_i):
+                        param.data += local_lr * prev_grad
+                        param.data -= local_lr * prev_y
+
                     # Update previous gradient for the next local step
                     for prev_grad, current_grad in zip(prev_stochastic_grad, current_stochastic_grad):
                         prev_grad.data = current_grad.clone()

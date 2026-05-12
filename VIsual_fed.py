@@ -190,6 +190,7 @@ criterias = [
 
         #new cycle noniid
         ["algorithm=fedavg"],
+        ["algorithm=sgfocus"],
         ["algorithm=scaffold"],
         ["algorithm=huscaffold"],
         ["algorithm=hscaffold"],
@@ -361,9 +362,7 @@ for idx in range(len(x_values_list)):
     markers=["o","X","P","^","v","s","h","<",">","d","*"]
     every=[5,5,5,5,5,5,5,5,5,5,5]
     order = [10,0,9,5,5,6,5,6,6]
-    legends = ["MW-1","MW-5", "MW-10", "MW-15", "AD-PSGD"]
-    # legends = [ "RW-8 (2 Failures)", "RW-8 (No Failure)", "AD-PSGD (2 Failures)", "AD-PSGD (No Failure)","Failure"]
-    # legends = ["MW-1","MW-4", "MW-8", "MW-12", "AD-PSGD"]
+    legends = ["FedAvg", "SG-FOCUS", "Scaffold", "SCALLION", "HC-Scaffold"]
 
 
     for i in range(len(data)):
@@ -386,7 +385,7 @@ for idx in range(len(x_values_list)):
     ax[0].set_xlabel(xlabel_list[idx]) #ax[0].set_xlabel('time (seconds)')
     ax[0].legend(legends)
     ax[0].grid(True,which="both")
-    ax[0].set_ylim([0, 4])
+    # ax[0].set_ylim([0, 4])
     # ax[0].set_xlim(xmax=500)
     # ax[0].set_xticks([0, 200, 400, 600, 800])
     ax[0].yaxis.set_major_locator(ticker.MaxNLocator(nbins=4))
@@ -411,7 +410,7 @@ for idx in range(len(x_values_list)):
     ax[1].set_xlabel(xlabel_list[idx])#ax[1].set_xlabel('iteration')#ax[1].set_xlabel('time (seconds)')
     ax[1].legend(legends)
     ax[1].grid(True,which="both")
-    ax[1].set_xlim(xmax=500)
+    # ax[1].set_xlim(xmax=500)
     # ax[1].yaxis.set_major_locator(ticker.MaxNLocator(nbins=4))
 
 
