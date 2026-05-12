@@ -14,7 +14,9 @@ config = {
 }
 
 duration = 15 * 60
-local_steps_per_iter = 5
+local_steps_per_iter = 1
+use_initial_loss = True
+initial_loss = 9.6
 
 def check_criteria(log_file, criteria):
     # Open the log file for reading
@@ -116,6 +118,8 @@ def aggregate_logs(base_path, criteria):
             # Filter and normalize times, and convert to seconds since start_time
             for event in parsed_data:
                 filtered_entries = []
+                if event == 'evaluation' and use_initial_loss:
+                    filtered_entries.append([0, initial_loss, initial_loss, initial_loss, initial_loss])
                 for entry in parsed_data[event]:
                     event_time = convert_to_datetime(entry[0])
                     if start_time <= event_time <= end_time:
@@ -153,67 +157,26 @@ def aggregate_logs(base_path, criteria):
 
 
 # Define the base path and criteria
-# base_path = '/Users/peymangholami/.kube/fail_logs'
-# base_path = '/Users/peymangholami/.kube/topology_logs'
-# base_path = '/Users/peymangholami/.kube/new_lr_logs' # for cycle and alpha=0.1
-# base_path = '/Users/peymangholami/.kube/cycle_logs'
+base_path = '/Users/peymangholami/.kube/logs'
 criterias = [
         
-        # for failiure
-        # ["algorithm=random_walk", "failure_times=[5","split_method=random"],
-        # ["algorithm=random_walk", "failure_times=[]","split_method=dirichlet_non_iid_alpha=10"],
-        # ["algorithm=async_gossip", "failure_times=[5",],
-        # ["algorithm=async_gossip", "failure_times=[]", "split_method=dirichlet_non_iid_alpha=10"]
+        # ["task=Cifar","algorithm=random_walk", "tau=5_", "non_iid_alpha=1"],
+        # ["task=Cifar","algorithm=random_walk", "tau=50", "non_iid_alpha=1"],
+        # ["task=Cifar","algorithm=split_random_walk", "tau=5_", "non_iid_alpha=1"],
+        # ["task=Cifar","algorithm=async_gossip", "tau=5_", "non_iid_alpha=1"],
 
-        # topology
-        # ["rw=1graph", "graph=cycle", "algorithm=random_walk"],
-        # ["rw=5graph", "graph=cycle", "algorithm=random_walk"],
-        # ["rw=10graph", "graph=cycle", "algorithm=random_walk"],
-        # ["rw=15graph", "graph=cycle", "algorithm=random_walk"],
-        # ["rw=15graph", "graph=cycle", "algorithm=async"],       
+        # ["task=Cifar","algorithm=random_walk", "tau=5_", "non_iid_alpha=0.1"],
+        # ["task=Cifar","algorithm=random_walk", "tau=50", "non_iid_alpha=0.1"],
+        # ["task=Cifar","algorithm=split_random_walk", "tau=5_", "non_iid_alpha=0.1"],
+        # ["task=Cifar","algorithm=async_gossip", "tau=5_", "non_iid_alpha=0.1"],
 
-
-        # ["rw=1graph", "graph=complete", "algorithm=random_walk"],
-        # ["rw=5graph", "graph=complete", "algorithm=random_walk"],
-        # ["rw=10graph", "graph=complete", "algorithm=random_walk"],
-        # ["rw=15graph", "graph=complete", "algorithm=random_walk"],
-        # ["rw=15graph", "graph=complete", "algorithm=async"],    
-
-
-        # ["rw=1graph", "graph=erdos_renyi", "algorithm=random_walk"],
-        # ["rw=5graph", "graph=erdos_renyi", "algorithm=random_walk"],
-        # ["rw=10graph", "graph=erdos_renyi", "algorithm=random_walk"],
-        # ["rw=15graph", "graph=erdos_renyi", "algorithm=random_walk"],
-        # ["rw=15graph", "graph=erdos_renyi", "algorithm=async"],    
-
-
-
-        #new cycle noniid
-        ["rw=1graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
-        ["rw=2graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
-        ["rw=4graph","split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
-        ["rw=6graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
-        ["split_method=dirichlet_non_iid_alpha=10","algorithm=async"],    
-
-
-        # ["rw=1graph", "split_method=dirichlet_non_iid_alpha=1.0", "algorithm=random_walk"],
-        # ["rw=3graph", "split_method=dirichlet_non_iid_alpha=1.0", "algorithm=random_walk"],
-        # ["rw=6graph","split_method=dirichlet_non_iid_alpha=1.0", "algorithm=random_walk"],
-        # ["rw=9graph", "split_method=dirichlet_non_iid_alpha=1.0", "algorithm=random_walk"],
-        # [ "split_method=dirichlet_non_iid_alpha=1.0","algorithm=async"],    
-
-
-
-        # ["rw=1graph", "split_method=dirichlet_non_iid_alpha=0.1", "algorithm=random_walk"],
-        # ["rw=4graph", "graph=cycle", "split_method=dirichlet_non_iid_alpha=0.1", "algorithm=random_walk"],
-        # ["rw=8graph", "graph=cycle", "split_method=dirichlet_non_iid_alpha=0.1", "algorithm=random_walk"],
-        # ["rw=12graph", "graph=cycle", "split_method=dirichlet_non_iid_alpha=0.1", "algorithm=random_walk"],
-        # [ "graph=cycle", "split_method=dirichlet_non_iid_alpha=0.1","algorithm=async"],  
-
-
-
+        ["task=MNLI" ,"algorithm=random_walk", "tau=10_"],
+        ["task=MNLI" ,"algorithm=random_walk", "tau=100_"],
+        ["task=MNLI" ,"algorithm=split_random_walk", "tau=10_","split_random_walk_ratio=10_"],
+        ["task=MNLI" ,"algorithm=async_gossip", "tau=10_"],
+       
     
-    # ["rw=4graph=erdos_renyi",
+    # ["rw=4graph=erdos_renyi",ß
     # "learning_rate=0.05",
     # "algorithm=random_walk",
     # "task=Cifar",
@@ -337,12 +300,13 @@ for case in data:
 #%%
 import matplotlib.pyplot as plt
 import matplotlib
-import matplotlib.ticker as ticker
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
+
 
 x_values_list = [
     [t_values for i in range(len(data))],
-    # [processed_mean[i]['local sgd'][1]/100 for i in range(len(data))],
-    [processed_mean[i]['local sgd'][1]/100/local_steps_per_iter for i in range(len(data))],
+    [processed_mean[i]['local sgd'][1]/100 for i in range(len(data))],
+    # [processed_mean[i]['local sgd'][1]/100/local_steps_per_iter for i in range(len(data))],
     # [processed_mean[i]['local sgd'][1]/100/int([item for item in criterias[i] if 'tau=' in item][0].split('tau=')[1].split('_')[0]) for i in range(len(data))],
     [processed_mean[i]['communication'][0] / 1024 / 1024 / 1024 for i in range(len(data))]
 ]
@@ -351,11 +315,11 @@ xlabel_list = ["time (seconds)", "iteration ($10^2$)", "communication overhead (
 
 
 for idx in range(len(x_values_list)):
-    plt.rcParams.update({'font.size': 19})
-    fig,ax = plt.subplots(figsize=(24,10),nrows=2, ncols=2)
+    plt.rcParams.update({'font.size': 18})
+    fig,ax = plt.subplots(figsize=(16,12),nrows=2, ncols=2)
     ax = ax.flatten()
     for a in ax:
-        a.tick_params(labelsize=19)
+        a.tick_params(labelsize=17)
     plt.subplots_adjust(left=0.08, bottom=0.1, right=0.95, top=0.95, wspace=0.3, hspace=0.35)
     colors = matplotlib.cm.tab20(range(20))
     b=0
@@ -363,45 +327,93 @@ for idx in range(len(x_values_list)):
     markers=["o","X","P","^","v","s","h","<",">","d","*"]
     every=[5,5,5,5,5,5,5,5,5,5,5]
     order = [10,0,9,5,5,6,5,6,6]
-    legends = ["MW-1","MW-5", "MW-10", "MW-15", "AD-PSGD"]
-    # legends = [ "RW-8 (2 Failures)", "RW-8 (No Failure)", "AD-PSGD (2 Failures)", "AD-PSGD (No Failure)","Failure"]
-    # legends = ["MW-1","MW-4", "MW-8", "MW-12", "AD-PSGD"]
+    # legends = ["MW-4","MW-4", "MW-8", "MW-12", "AD-PSGD"]
+    legends = [ "RW-5", "RW-50", "SRWL-50-5", "AG-5"]
+    # legends = [ "RW-10", "RW-100", "SRWL-100-10", "AG-10"]
+    # legends = []
 
+
+
+
+# 1. Create the inset axis inside ax[0]
+# width/height: size of the box relative to ax[0]
+# loc: position (1=upper right, 2=upper left, etc. or string)
+    if idx == 2:
+        axins = inset_axes(ax[0], width="50%", height="50%", 
+                    loc='upper left', 
+                    bbox_to_anchor=(.2, -.25, 1, .9), # <--- Shifts it slightly left/down(.05, .09, 1, .9)
+                    bbox_transform=ax[0].transAxes)
 
     for i in range(len(data)):
         x = x_values_list[idx][i]
-        y = processed_mean[i]['evaluation'][2]
-        ax[0].plot(x, y)
-        std = processed_std[i]['evaluation'][2]
-        # if i == 4:
-        #     ax[0].fill_between(x, y - 5*std, y + 5*std, alpha=0.2,label='_nolegend_')
-        # else:
-        ax[0].fill_between(x, y - std, y + std, alpha=0.2,label='_nolegend_')
+        y = processed_mean[i]['evaluation'][0]
+        std = processed_std[i]['evaluation'][0]
+        
+        # --- Plot on Main Axis ---
+        # We capture the 'line' object to get the assigned color
+        line, = ax[0].plot(x, y)
+        ax[0].fill_between(x, y - std, y + std, alpha=0.2, label='_nolegend_')
 
-    for i,line in enumerate(ax[0].get_lines()):
+        # --- Plot on Zoomed Inset (Same Data) ---
+        # Use line.get_color() so the inset matches the main plot colors
+        if idx == 2:
+            axins.plot(x, y, color=line.get_color())
+            axins.fill_between(x, y - std, y + std, alpha=0.2, color=line.get_color())
+
+    # --- Existing styling logic ---
+    for i, line in enumerate(ax[0].get_lines()):
         # line.set_marker(markers[i])
         # line.set_markevery(5)
         # line.set_color(colors[i])
         line.set_markersize(10)
 
     ax[0].set_ylabel('training global loss')
-    ax[0].set_xlabel(xlabel_list[idx]) #ax[0].set_xlabel('time (seconds)')
+    ax[0].set_xlabel(xlabel_list[idx]) 
     ax[0].legend(legends)
-    ax[0].grid(True,which="both")
-    ax[0].set_ylim([0, 4])
-    # ax[0].set_xlim(xmax=500)
-    # ax[0].set_xticks([0, 200, 400, 600, 800])
-    ax[0].yaxis.set_major_locator(ticker.MaxNLocator(nbins=4))
+    ax[0].grid(True, which="both")
 
+    # --- ZOOM CONFIGURATION (The important part) ---
+
+    # 2. Set the "window" you want to zoom into
+    # Based on your image, the crowded part is x=0 to 3, y=1 to 4
+    if idx == 2:
+        axins.set_xlim(-.1, 30) 
+        axins.set_ylim(1, 9.2) 
+
+        # 3. Add grid to inset for readability
+        # axins.grid(True)
+        axins.set_xticks([]) 
+        axins.set_yticks([])
+
+        # 4. Draw the connecting lines from the main plot to the zoom box
+        # loc1 and loc2 determine which corners connect (1, 2, 3, 4)
+        mark_inset(ax[0], axins, loc1=1, loc2=4, 
+            fc="none", 
+            ec="0.5",       # 50% Grey
+            lw=0.8,         
+            ls="--",        # Dashed line style
+            alpha=0.8)
+
+
+
+
+
+    if idx == 2:
+        axins = inset_axes(ax[1], width="50%", height="50%", 
+                    loc='upper left', 
+                    bbox_to_anchor=(.2, -.25, 1, .9), # <--- Shifts it slightly left/down
+                    bbox_transform=ax[1].transAxes)
 
 
     for i in range(len(data)):
         x = x_values_list[idx][i]
         y = processed_mean[i]['evaluation'][3]#[entry[2] for entry in processed_mean[i]['evaluation']]
+        line, = ax[1].plot(x, y)
         std = processed_std[i]['evaluation'][3]
-        ax[1].plot(x, y-1*std)
-        # r = np.random.uniform(-.02, .02 , len(x))
-        ax[1].fill_between(x, y-1*std - std, y- 1*std + std, alpha=0.2, label='_nolegend_')
+        ax[1].fill_between(x, y - std, y + std, alpha=0.2, label='_nolegend_')
+        if idx == 2:
+            axins.plot(x, y, color=line.get_color())
+            axins.fill_between(x, y - std, y + std, alpha=0.2, color=line.get_color())
 
     for i,line in enumerate(ax[1].get_lines()):
         # line.set_marker(markers[i])
@@ -409,16 +421,30 @@ for idx in range(len(x_values_list)):
         # line.set_color(colors[i])
         line.set_markersize(10)
 
-    ax[1].set_ylabel('test accuracy')
+    ax[1].set_ylabel('test loss')
     ax[1].set_xlabel(xlabel_list[idx])#ax[1].set_xlabel('iteration')#ax[1].set_xlabel('time (seconds)')
     ax[1].legend(legends)
     ax[1].grid(True,which="both")
-    ax[1].set_xlim(xmax=500)
-    # ax[1].yaxis.set_major_locator(ticker.MaxNLocator(nbins=4))
 
 
+    if idx == 2:
+        axins.set_xlim(-.1, 30) 
+        axins.set_ylim(1, 9.2) 
 
-    
+        # 3. Add grid to inset for readability
+        # axins.grid(True)
+        axins.set_xticks([]) 
+        axins.set_yticks([])
+
+        # 4. Draw the connecting lines from the main plot to the zoom box
+        # loc1 and loc2 determine which corners connect (1, 2, 3, 4)
+        mark_inset(ax[1], axins, loc1=1, loc2=4, 
+            fc="none", 
+            ec="0.5",       # 50% Grey
+            lw=0.8,         
+            ls="--",        # Dashed line style
+            alpha=0.8)
+
 
 
     for i in range(len(data)):
@@ -460,20 +486,12 @@ for idx in range(len(x_values_list)):
     ax[3].legend(legends)
     ax[3].grid(True,which="both")
 
-
-    # for a in [ax[0], ax[1]]:
-    #     a.axvline(x=300, linestyle='--', color='gray', linewidth=2,label='Failure')
-    #     a.axvline(x=600, linestyle='--', color='gray', linewidth=2)
-
-    # ax[0].legend(legends)
-    # ax[1].legend(legends)
     # if xlabel_list[idx] == "communication overhead (GB)":
     #     ax[0].set_xlim(0, 10)
     #     ax[1].set_xlim(0, 10)
     #     ax[2].set_xlim(0, 10)
     #     ax[3].set_xlim(0, 10)
-    plt.tight_layout()
-
+    
     # Save the figure as a PDF
-    # plt.savefig("./figures/"+output_filenames_list[idx]+" ".join(criterias[0])+".pdf", format='pdf', bbox_inches='tight')
+    plt.savefig("./figures/"+output_filenames_list[idx]+" ".join(criterias[-1])+".pdf", format='pdf', bbox_inches='tight', dpi=300)
     plt.show()

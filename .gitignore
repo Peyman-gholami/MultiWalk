@@ -1,0 +1,47 @@
+# Large / generated outputs
+figures/
+figures.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.env/
+.venv/
+env/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Experiment & ML tooling
+wandb/
+runs/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+logs/
+outputs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local / secrets
+.env
+*.local
+
+kube_jobs/

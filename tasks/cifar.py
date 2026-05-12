@@ -133,6 +133,40 @@ class CifarTask(Task):
                     mean_quality[key] += weight * (quality[key] - mean_quality[key])
         return mean_quality
 
+    def recalibrate_state(
+            self,
+            dataset: Dataset,
+            parameters: List[torch.Tensor],
+            state: List[torch.Tensor],
+    ) -> List[torch.Tensor]:
+        """Runs a forward pass on a random 10% of the dataset to update BatchNorm buffers."""
+        
+        current_state = state
+        
+        # Calculate the 10% threshold. 
+        # (Replace len(dataset) with however your custom Dataset exposes its total size)
+        target_samples = int(0.10 * len(dataset)) 
+        processed_samples = 0
+        
+        with torch.no_grad():
+            # CRITICAL: shuffle=True ensures we get a different random 10% slice every time
+            for _, batch in dataset.iterator(batch_size=250, shuffle=True, repeat=False):
+                
+                _, current_state = self._forward(
+                    batch._x, 
+                    parameters, 
+                    current_state, 
+                    is_training=True
+                )
+                
+                processed_samples += len(batch)
+                
+                # Break early to save computation once we hit the 10% limit
+                if processed_samples >= target_samples:
+                    break
+                    
+        return current_state
+
     def _forward(
             self,
             input,

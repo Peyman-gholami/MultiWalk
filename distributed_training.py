@@ -144,11 +144,11 @@ class DecentralizedTraining:
         parameters, state = task.initialize(self.config["seed"])
 
         while True:
-            # Wait for activation (eval_process_active == 1) or termination (eval_process_active == -1)
+            # Wait for activation (eval_process_active == 1) or termination (eval_process_active == 0)
             while eval_process_active.value == 2:
                 time.sleep(0.1)  # Check periodically if activated
             
-            # Check if we should terminate (eval_process_active == -1 means terminate)
+            # Check if we should terminate (eval_process_active == 0 means terminate)
             if eval_process_active.value == 0:
                 break
             
@@ -160,7 +160,8 @@ class DecentralizedTraining:
                 extracted_params = shared_arrays
 
             parameters = load_from_shared(parameters, extracted_params, device)
-            state = load_from_shared(state, shared_state, device)
+            #state = load_from_shared(state, shared_state, device)
+            state = task.recalibrate_state(task.data, parameters, state)    
 
             logger.log_start("evaluation")
             train_loss = task.evaluate(task.data, parameters, state)
