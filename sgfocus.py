@@ -212,25 +212,19 @@ class SGFocus:
                 y_i = [torch.zeros_like(p).to(training_device) for p in parameters]
 
                 event_logger.log_start("local sgd")
-                epoch = -1
+                
                 for step in range(self.parent.tau):
-                    # Compute stochastic gradient at x_{t,i} (no optimizer step here).
-                    epoch, batch = next(batch_data_gen)
+                    # Get current stochastic gradient
                     time_for_lr_schedule = time.time() - training_start_time
-                    _, current_stochastic_grad, state = training_task.loss_and_gradient(parameters, state, batch)
-
+                    epoch, current_stochastic_grad = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time_for_lr_schedule, 1)                    
                     # y_{t+1,i} = y_{t,i} + current_grad - prev_grad
                     for y, current_grad, prev_grad in zip(y_i, current_stochastic_grad, prev_stochastic_grad):
                         y.data += current_grad - prev_grad
 
-                    # Line 8 of SG-FOCUS: apply optimizer step using y_{t+1,i}.
+                    # x_{t+1,i} = x_{t,i} - eta * y_{t+1,i}
                     local_lr = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
-                    base_optimizer.step(
-                        parameters,
-                        y_i,
-                        base_optimizer_state,
-                        lr=local_lr,
-                    )
+                    for param, y_val in zip(parameters, y_i):
+                        param.data -= local_lr * y_val
                     
                     # Update previous gradient for the next local step
                     for prev_grad, current_grad in zip(prev_stochastic_grad, current_stochastic_grad):
