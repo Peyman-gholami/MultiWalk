@@ -6,7 +6,6 @@ import numpy as np
 from torch.multiprocessing import Process, Array, Value, Lock
 import time
 from tasks.api import Task
-from base_optimizers import configure_base_optimizer
 from utils.communication import (
     pack,
     unpack,
@@ -164,9 +163,6 @@ class SGFocus:
         # Initialize task and model
         training_task = self.parent.configure_task(client_rank, training_device)
         parameters, state = training_task.initialize(self.parent.config["seed"])
-        base_optimizer = configure_base_optimizer(self.parent.config)
-        base_optimizer_state = base_optimizer.init(parameters)
-
         # Initialize previous stochastic gradient for local updates
         prev_stochastic_grad = [torch.zeros_like(param).to(training_device) for param in parameters]
         # # Initialize y
@@ -214,9 +210,11 @@ class SGFocus:
                 event_logger.log_start("local sgd")
                 
                 for step in range(self.parent.tau):
-                    # Get current stochastic gradient
+                    # Compute stochastic gradient without applying optimizer.step().
+                    # SG-FOCUS local dynamics should only use x <- x - eta * y.
+                    epoch, batch = next(batch_data_gen)
+                    _, current_stochastic_grad, state = training_task.loss_and_gradient(parameters, state, batch)
                     time_for_lr_schedule = time.time() - training_start_time
-                    epoch, current_stochastic_grad = self.parent.local_sgd(training_task, parameters, state, base_optimizer, base_optimizer_state, batch_data_gen, time_for_lr_schedule, 1)                    
                     # y_{t+1,i} = y_{t,i} + current_grad - prev_grad
                     for y, current_grad, prev_grad in zip(y_i, current_stochastic_grad, prev_stochastic_grad):
                         y.data += current_grad - prev_grad
