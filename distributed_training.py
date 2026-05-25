@@ -20,6 +20,7 @@ from utils.tools import (
     load_from_shared
 )
 from fedavg import FedAVG
+from fedprox import FedProx
 from mifa import MIFA
 from scaffold import Scaffold, HUScaffold, HScaffold
 from sgfocus import SGFocus
@@ -199,6 +200,9 @@ class DecentralizedTraining:
         elif self.algorithm == 'fedavg':
             fedavg = FedAVG(self)
             fedavg.run(rank)
+        elif self.algorithm == 'fedprox':
+            fedprox = FedProx(self)
+            fedprox.run(rank)
         elif self.algorithm == 'mifa':
             mifa = MIFA(self)
             mifa.run(rank)

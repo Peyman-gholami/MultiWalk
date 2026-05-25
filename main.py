@@ -55,10 +55,11 @@ if __name__ == "__main__":
     parser.add_argument('--group_names', type=str, nargs='+', default=['group1', 'group2'], help='List of group names')
     parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for asynchronous gossip')
     parser.add_argument('--global_learning_rate', type=float, default=1.0, help='Global earning rate for federated settings')
-    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk', 'fedavg', 'mifa', 'scaffold', 'huscaffold', 'hscaffold', 'sgfocus'], required=True,
+    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk', 'fedavg', 'fedprox', 'mifa', 'scaffold', 'huscaffold', 'hscaffold', 'sgfocus'], required=True,
                         help='Algorithm to run')
     parser.add_argument('--split_random_walk_ratio', type=int, default=1, help='Split random walk ratio')
     parser.add_argument('--participation_rate', type=float, default=1.0, help='Fraction of clients participating in each FedAVG round')
+    parser.add_argument('--fedprox_param', type=float, default=0.0, help='FedProx proximal parameter (mu)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--task', type=str, choices=['Cifar', 'MNLI'], default="Cifar", help='Task name')
     parser.add_argument('--model_name', type=str, default="ResNet20", help='Model name')
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     master_address = MASTER_ADDR
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
-    specific_keys = ['graph', 'train_time', 'learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio', 'failure_times']  # Replace these with your specific keys
+    specific_keys = ['graph', 'train_time', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio', 'fedprox_param', 'failure_times']  # Replace these with your specific keys
     log_name_parts = []
     for key, value in vars(args).items():
         if key in specific_keys:
@@ -112,6 +113,7 @@ if __name__ == "__main__":
         "model_name": args.model_name,
         "split_random_walk_ratio": args.split_random_walk_ratio,
         "participation_rate": args.participation_rate,
+        "fedprox_param": args.fedprox_param,
         "data_split_method": args.data_split_method,
         "non_iid_alpha": args.non_iid_alpha,
         "batch_size": args.batch_size,
