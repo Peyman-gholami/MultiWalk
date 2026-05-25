@@ -35,6 +35,45 @@ def send_log_to_remote_server(log_file_path, remote_user, remote_address, remote
     subprocess.run(command, check=True)
 
 
+def _format_log_value(value):
+    if isinstance(value, list):
+        return "none" if not value else ",".join(map(str, value))
+    if isinstance(value, float):
+        return format(value, ".6g")
+    return str(value)
+
+
+def build_log_name(size, rank, num_rw, args, specific_keys):
+    """Build a compact log filename that stays within filesystem limits."""
+    log_key_abbrev = {
+        "graph": "g",
+        "train_time": "tt",
+        "learning_rate": "lr",
+        "global_learning_rate": "glr",
+        "task": "t",
+        "data_split_method": "ds",
+        "non_iid_alpha": "alpha",
+        "base_optimizer": "opt",
+        "split_random_walk_ratio": "srw",
+        "fedprox_param": "mu",
+        "failure_times": "fail",
+    }
+    parts = [f"s{size}", f"r{rank}", f"rw{num_rw}"]
+    for key in specific_keys:
+        value = getattr(args, key)
+        if key == "fedprox_param" and args.algorithm != "fedprox" and value == 0.0:
+            continue
+        if key == "split_random_walk_ratio" and args.algorithm != "split_random_walk" and value == 1:
+            continue
+        if key == "failure_times" and not value:
+            continue
+        if key == "algorithm":
+            parts.append(f"algorithm={value}")
+            continue
+        parts.append(f"{log_key_abbrev.get(key, key)}={_format_log_value(value)}")
+    return "_".join(parts)
+
+
 # Environment variables set by torch.distributed.launch
 LOCAL_RANK = int(os.environ['LOCAL_RANK'])
 WORLD_SIZE = int(os.environ['WORLD_SIZE'])
@@ -89,17 +128,7 @@ if __name__ == "__main__":
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
     specific_keys = ['graph', 'train_time', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio', 'fedprox_param', 'failure_times']  # Replace these with your specific keys
-    log_name_parts = []
-    for key, value in vars(args).items():
-        if key in specific_keys:
-            if isinstance(value, list):
-                if value:
-                    log_name_parts.append(f'{key}=[{",".join(map(str, value))}]')
-                else:
-                    log_name_parts.append(f'{key}=[]')
-            else:
-                log_name_parts.append(f'{key}={value}')
-    log_name = f'full_dup_size={size}_rank={rank}_rw={len(args.group_names)}' + '_'.join(log_name_parts)
+    log_name = build_log_name(size, rank, len(args.group_names), args, specific_keys)
     if args.algorithm == 'async_gossip':
         output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
     else:
