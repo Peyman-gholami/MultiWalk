@@ -127,7 +127,7 @@ if __name__ == "__main__":
     master_address = MASTER_ADDR
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
-    specific_keys = ['graph', 'train_time', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio', 'fedprox_param', 'failure_times']  # Replace these with your specific keys
+    specific_keys = ['graph', 'train_time', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio', 'fedprox_param', 'failure_times', 'participation_rate']  # Replace these with your specific keys
     log_name = build_log_name(size, rank, len(args.group_names), args, specific_keys)
     if args.algorithm == 'async_gossip':
         output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
