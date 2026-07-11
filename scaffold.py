@@ -585,7 +585,7 @@ class HScaffold(Scaffold):
             for client_rank, updates in client_updates.items():
                 parameter_difference = updates["parameter_difference"]
                 for global_param, client_diff in zip(global_parameters, parameter_difference):
-                    global_param.data += self.global_learning_rate * (client_diff.to(communication_device) / len(participating_clients))
+                    global_param.data += self.global_learning_rate * (client_diff.to(communication_device))#/ len(participating_clients))
 
             # Update shared arrays
             for param, shared_array in zip(global_parameters, shared_parameter_arrays):
@@ -665,8 +665,9 @@ class HScaffold(Scaffold):
                 local_lr_reference = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
                 
                 # global_control_variates = [(last_global_param - global_param) / (self.parent.tau * self.global_learning_rate * local_lr_reference * (current_round - last_round))  for global_param, last_global_param in zip(global_params, last_global_params)]
-                global_control_variates = [(last_global_param - global_param) * int(self.participation_rate * (self.parent.size -1)) / (self.parent.size -1) / ( self.parent.tau * self.global_learning_rate * local_lr_reference )  for global_param, last_global_param in zip(global_params, last_global_params)]
-                
+                # global_control_variates = [(last_global_param - global_param) * int(self.participation_rate * (self.parent.size -1)) / (self.parent.size -1) / ( self.parent.tau * self.global_learning_rate * local_lr_reference )  for global_param, last_global_param in zip(global_params, last_global_params)]
+                global_control_variates = [(last_global_param - global_param) / (self.parent.size -1) / ( self.parent.tau * self.global_learning_rate * local_lr_reference )  for global_param, last_global_param in zip(global_params, last_global_params)]
+
                 last_round = current_round
                 last_global_params = [param.clone() for param in global_params]
                 
