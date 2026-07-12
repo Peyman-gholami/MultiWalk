@@ -1,7 +1,12 @@
 import os
 import contextlib
+import hashlib
 import itertools
+import logging
 import re
+import tempfile
+import urllib.request
+from pathlib import Path
 from typing import Iterable, List, Tuple
 import torch
 from torch.random import fork_rng
@@ -12,6 +17,64 @@ from torch.utils.data.dataset import Subset, random_split
 from .utils.non_iid_dirichlet import distribute_data_dirichlet
 
 from .api import Batch, Dataset, Gradient, Loss, Parameters, Quality, State, Task
+
+CIFAR10_TGZ = "cifar-10-python.tar.gz"
+CIFAR10_MD5 = "c58f30108f718f92721af3b95e74349a"
+# Prefer a fast mirror; official Toronto host is often very slow.
+CIFAR10_URLS = (
+    "https://github.com/Digital-Media/cv_data/releases/download/cifar-10/cifar-10-python.tar.gz",
+    "https://data.brainchip.com/dataset-mirror/cifar10/cifar-10-python.tar.gz",
+)
+
+
+def _file_md5(path: Path, chunk_size: int = 1 << 20) -> str:
+    digest = hashlib.md5()
+    with path.open("rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def ensure_cifar10_data(data_root: str = "./data/") -> None:
+    """Download CIFAR-10 from a fast mirror if torchvision has not already extracted it."""
+    root = Path(data_root)
+    root.mkdir(parents=True, exist_ok=True)
+    extracted = root / "cifar-10-batches-py"
+    tarball = root / CIFAR10_TGZ
+
+    if extracted.is_dir():
+        return
+    if tarball.is_file() and _file_md5(tarball) == CIFAR10_MD5:
+        return
+
+    last_error = None
+    for url in CIFAR10_URLS:
+        tmp_path = None
+        try:
+            logging.info("Downloading CIFAR-10 from %s", url)
+            with tempfile.NamedTemporaryFile(delete=False, dir=root, suffix=".tar.gz.part") as tmp:
+                tmp_path = Path(tmp.name)
+                with urllib.request.urlopen(url, timeout=60) as response:
+                    while True:
+                        chunk = response.read(1 << 20)
+                        if not chunk:
+                            break
+                        tmp.write(chunk)
+            if _file_md5(tmp_path) != CIFAR10_MD5:
+                raise ValueError(f"MD5 mismatch for download from {url}")
+            tmp_path.replace(tarball)
+            logging.info("CIFAR-10 ready at %s", tarball)
+            return
+        except Exception as exc:
+            last_error = exc
+            logging.warning("CIFAR-10 download failed from %s: %s", url, exc)
+            if tmp_path is not None and tmp_path.exists():
+                tmp_path.unlink(missing_ok=True)
+
+    raise RuntimeError(f"Failed to download CIFAR-10 from all mirrors: {last_error}")
 
 
 class CifarTask(Task):
@@ -323,6 +386,7 @@ class CifarDataset(PyTorchDataset):
             raise ValueError(f"Unknown split '{split}'.")
 
         with lock:
+            ensure_cifar10_data(data_root)
             dataset = torchvision.datasets.CIFAR10(
                 root=data_root, train=(split == "train"), download=True, transform=transform
             )
@@ -330,4 +394,5 @@ class CifarDataset(PyTorchDataset):
 
 
 def download(lock):
+    ensure_cifar10_data()
     CifarDataset("train", lock)
