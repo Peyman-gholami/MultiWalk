@@ -163,6 +163,10 @@ class SGFocus:
         # Initialize task and model
         training_task = self.parent.configure_task(client_rank, training_device)
         parameters, state = training_task.initialize(self.parent.config["seed"])
+        # SG-FOCUS uses pure stochastic gradients in its local recursion.
+        # Task-level weight decay would alter y updates and can destabilize convergence.
+        if hasattr(training_task, "_weight_decay_per_param"):
+            training_task._weight_decay_per_param = [0.0 for _ in training_task._weight_decay_per_param]
         # Initialize previous stochastic gradient for local updates
         prev_stochastic_grad = [torch.zeros_like(param).to(training_device) for param in parameters]
         # # Initialize y

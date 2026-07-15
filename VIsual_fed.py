@@ -189,11 +189,13 @@ criterias = [
 
 
         #new cycle noniid
-        ["algorithm=fedavg"],
-        ["algorithm=sgfocus"],
+        ["algorithm=fedavg","participation_rate=0.3"],
+        ["algorithm=hscaffold","participation_rate=0.3"],
+        ["algorithm=mifa"],
+        # ["algorithm=sgfocus"],
         ["algorithm=scaffold"],
         ["algorithm=huscaffold"],
-        ["algorithm=hscaffold"],
+        
 
         # ["rw=1graph", "split_method=dirichlet_non_iid_alpha=1.0", "algorithm=random_walk"],
         # ["rw=3graph", "split_method=dirichlet_non_iid_alpha=1.0", "algorithm=random_walk"],
@@ -362,7 +364,7 @@ for idx in range(len(x_values_list)):
     markers=["o","X","P","^","v","s","h","<",">","d","*"]
     every=[5,5,5,5,5,5,5,5,5,5,5]
     order = [10,0,9,5,5,6,5,6,6]
-    legends = ["FedAvg", "SG-FOCUS", "Scaffold", "SCALLION", "HC-Scaffold"]
+    legends = ["FedAvg","HC-Scaffold", 'Arbitrary', "Scaffold", "SCALLION"]
 
 
     for i in range(len(data)):

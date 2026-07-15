@@ -1,6 +1,7 @@
 # Large / generated outputs
 figures/
 figures.zip
+data/
 
 # Python
 __pycache__/

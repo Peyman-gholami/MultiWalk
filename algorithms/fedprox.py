@@ -6,7 +6,7 @@ import torch
 import torch.distributed as dist
 
 from base_optimizers import configure_base_optimizer
-from fedavg import FedAVG
+from .fedavg import FedAVG
 from logger import EventLogger
 from utils.communication import pack, unpack, num_bytes
 
