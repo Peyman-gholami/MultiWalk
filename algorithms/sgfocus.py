@@ -12,6 +12,7 @@ from utils.communication import (
     num_bytes
 )
 from logger import EventLogger
+from utils.participation import select_participating_clients as sample_participating_clients
 
 
 class SGFocus:
@@ -22,13 +23,8 @@ class SGFocus:
         self.global_learning_rate = parent.config.get('global_learning_rate', 1.0) # Global learning rate
 
     def select_participating_clients(self, round_number, total_clients):
-        """Return the actual ranks of selected participating clients for current round"""
-        torch.manual_seed(self.parent.config["seed"] + round_number)
-        num_participants = max(1, int(self.participation_rate * total_clients)) # At least 1 client
-        # Client ranks are from 1 to total_clients (server is rank 0)
-        participant_indices = torch.randperm(total_clients)[:num_participants].tolist()
-        participating_client_ranks = [idx + 1 for idx in participant_indices]  # Actual distributed ranks
-        return participating_client_ranks
+        """Return ranks of clients sampled with per-node, per-round probabilities p_i^r."""
+        return sample_participating_clients(self.parent.config, round_number, total_clients)
 
     def send_to_clients(self, participating_clients, global_parameters, device, logger, round_number, server_rank):
         """Send global model to all participating clients separately"""

@@ -57,6 +57,10 @@ def build_log_name(size, rank, num_rw, args, specific_keys):
         "split_random_walk_ratio": "srw",
         "fedprox_param": "mu",
         "failure_times": "fail",
+        "participation_rate": "prate",
+        "participation_pattern": "ppat",
+        "participation_low": "plow",
+        "participation_period": "pperiod",
     }
     parts = [f"s{size}", f"r{rank}", f"rw{num_rw}"]
     for key in specific_keys:
@@ -67,6 +71,18 @@ def build_log_name(size, rank, num_rw, args, specific_keys):
             continue
         if key == "failure_times" and not value:
             continue
+        if key == "participation_pattern" and value == "uniform":
+            continue
+        if key == "participation_low":
+            low = value[0] if isinstance(value, list) and len(value) == 1 else value
+            if low == 0.0 or getattr(args, "participation_pattern", "uniform") == "uniform":
+                continue
+        if key == "participation_period" and (value == 50 or getattr(args, "participation_pattern", "uniform") in ("uniform", "stationary")):
+            continue
+        if key == "participation_rate":
+            # Keep log names short when a single shared rate is used.
+            if isinstance(value, list) and len(value) == 1:
+                value = value[0]
         if key == "algorithm":
             parts.append(f"algorithm={value}")
             continue
@@ -97,7 +113,15 @@ if __name__ == "__main__":
     parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk', 'fedavg', 'fedprox', 'mifa', 'scaffold', 'huscaffold', 'hscaffold', 'sgfocus'], required=True,
                         help='Algorithm to run')
     parser.add_argument('--split_random_walk_ratio', type=int, default=1, help='Split random walk ratio')
-    parser.add_argument('--participation_rate', type=float, default=1.0, help='Fraction of clients participating in each FedAVG round')
+    parser.add_argument('--participation_rate', type=float, nargs='+', default=[1.0],
+                        help='High participation probability: one value for all clients, or one per client')
+    parser.add_argument('--participation_pattern', type=str, default='uniform',
+                        choices=['uniform', 'stationary', 'staircase', 'sine', 'interleaved_sine'],
+                        help='How p_i^r varies over clients and rounds')
+    parser.add_argument('--participation_low', type=float, nargs='+', default=[0.0],
+                        help='Low participation probability: one value for all clients, or one per client')
+    parser.add_argument('--participation_period', type=int, default=50,
+                        help='Cycle length in rounds for non-stationary participation patterns')
     parser.add_argument('--fedprox_param', type=float, default=0.0, help='FedProx proximal parameter (mu)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--task', type=str, choices=['Cifar', 'MNLI'], default="Cifar", help='Task name')
@@ -127,7 +151,7 @@ if __name__ == "__main__":
     master_address = MASTER_ADDR
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
-    specific_keys = ['graph', 'train_time', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha','base_optimizer', 'tau', 'split_random_walk_ratio', 'fedprox_param', 'failure_times', 'participation_rate']  # Replace these with your specific keys
+    specific_keys = ['graph', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha', 'tau', 'fedprox_param', 'participation_rate', 'participation_pattern']  # Replace these with your specific keys
     log_name = build_log_name(size, rank, len(args.group_names), args, specific_keys)
     if args.algorithm == 'async_gossip':
         output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
@@ -142,6 +166,9 @@ if __name__ == "__main__":
         "model_name": args.model_name,
         "split_random_walk_ratio": args.split_random_walk_ratio,
         "participation_rate": args.participation_rate,
+        "participation_pattern": args.participation_pattern,
+        "participation_low": args.participation_low,
+        "participation_period": args.participation_period,
         "fedprox_param": args.fedprox_param,
         "data_split_method": args.data_split_method,
         "non_iid_alpha": args.non_iid_alpha,

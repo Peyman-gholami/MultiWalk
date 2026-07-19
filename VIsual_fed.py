@@ -156,7 +156,7 @@ def aggregate_logs(base_path, criteria):
 # base_path = '/Users/peymangholami/.kube/fail_logs'
 # base_path = '/Users/peymangholami/.kube/topology_logs'
 # base_path = '/Users/peymangholami/.kube/new_lr_logs' # for cycle and alpha=0.1
-base_path = '/Users/peymangholami/.kube/fed_logs'
+base_path = '/Users/peymangholami/.kube/fed_logs_arbitrary'
 criterias = [
         
         # for failiure
@@ -189,12 +189,12 @@ criterias = [
 
 
         #new cycle noniid
-        ["algorithm=fedavg","participation_rate=0.3"],
-        ["algorithm=hscaffold","participation_rate=0.3"],
-        ["algorithm=mifa"],
+        # ["algorithm=fedavg","participation_rate=0.3"],
+        ["algorithm=hscaffold","_lr=0.05","dirichlet_alpha=0.01","participation_rate=0.1","_tau=50"],
+        ["algorithm=mifa", "_lr=0.05","dirichlet_alpha=0.01","participation_rate=0.1","_tau=50"],
         # ["algorithm=sgfocus"],
-        ["algorithm=scaffold"],
-        ["algorithm=huscaffold"],
+        # ["algorithm=scaffold"],
+        # ["algorithm=huscaffold"],
         
 
         # ["rw=1graph", "split_method=dirichlet_non_iid_alpha=1.0", "algorithm=random_walk"],

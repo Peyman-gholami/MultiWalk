@@ -7,6 +7,7 @@ import time
 from base_optimizers import configure_base_optimizer
 from utils.communication import pack, unpack, num_bytes
 from logger import EventLogger
+from utils.participation import select_participating_clients as sample_participating_clients
 
 
 class MIFA:
@@ -25,10 +26,7 @@ class MIFA:
         self.participation_rate = parent.config.get("participation_rate", 1)
 
     def select_participating_clients(self, round_number, total_clients):
-        torch.manual_seed(self.parent.config["seed"] + round_number)
-        num_participants = max(1, int(self.participation_rate * total_clients))
-        participant_indices = torch.randperm(total_clients)[:num_participants].tolist()
-        return [idx + 1 for idx in participant_indices]
+        return sample_participating_clients(self.parent.config, round_number, total_clients)
 
     def send_to_clients(self, participating_clients, global_parameters, device, logger, round_number, server_rank):
         notification_requests = []
