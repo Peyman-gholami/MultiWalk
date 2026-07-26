@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import timedelta
 
 import torch
 import torch.distributed as dist
@@ -54,7 +55,8 @@ class DecentralizedTraining:
     def init_process(self, rank, size, backend, port, group_name):
         init_method = f'tcp://{self.master_address}:{port}'
         logging.info(f"Before [{group_name}] Rank {rank} initialized with backend {backend} on port {port}")
-        dist.init_process_group(backend, rank=rank, world_size=size, init_method=init_method)
+        dist.init_process_group(backend, rank=rank, world_size=size, init_method=init_method,
+                                timeout=timedelta(minutes=60))
         logging.info(f"[{group_name}] Rank {rank} initialized with backend {backend} on port {port}")
 
     def configure_task(self, rank, device) -> Task:
