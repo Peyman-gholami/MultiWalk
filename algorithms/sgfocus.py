@@ -248,7 +248,7 @@ class SGFocus:
                     # x_{t+1,i} = x_{t,i} - eta * y_{t+1,i}. local_sgd already moved along
                     # current_direction, so applying the residual leaves exactly the tracked step.
                     for param, y, current in zip(parameters, y_i, current_direction):
-                        param.data -= local_lr * (y - current)
+                        param.data -= local_lr * (y )#- current)
 
                     # Store the current direction for the next local step.
                     for prev, current in zip(prev_local_direction, current_direction):
