@@ -6,6 +6,7 @@ import numpy as np
 from torch.multiprocessing import Process, Array, Value, Lock
 import time
 from tasks.api import Task
+from base_optimizers import configure_base_optimizer
 from utils.communication import (
     pack,
     unpack,
@@ -159,14 +160,14 @@ class SGFocus:
         # Initialize task and model
         training_task = self.parent.configure_task(client_rank, training_device)
         parameters, state = training_task.initialize(self.parent.config["seed"])
-        # SG-FOCUS uses pure stochastic gradients in its local recursion.
-        # Task-level weight decay would alter y updates and can destabilize convergence.
-        if hasattr(training_task, "_weight_decay_per_param"):
-            training_task._weight_decay_per_param = [0.0 for _ in training_task._weight_decay_per_param]
-        # Initialize previous stochastic gradient for local updates
-        prev_stochastic_grad = [torch.zeros_like(param).to(training_device) for param in parameters]
-        # # Initialize y
-        # y_i = [torch.zeros_like(param).to(training_device) for param in parameters]
+        base_optimizer = configure_base_optimizer(self.parent.config)
+        base_optimizer_state = base_optimizer.init(parameters)
+        # Previous local direction, i.e. the base optimizer's applied update divided by eta.
+        # For plain SGD this is the stochastic gradient of Alg. 2; with momentum or Adam it is
+        # the full preconditioned direction, so those effects propagate into y_i and to the server.
+        prev_local_direction = [torch.zeros_like(param).to(training_device) for param in parameters]
+        # Snapshot of x_{t,i} taken before each local step, used to recover that direction.
+        params_before_step = [torch.empty_like(param).to(training_device) for param in parameters]
 
 
         batch_data_gen = training_task.data.iterator(
@@ -204,10 +205,10 @@ class SGFocus:
                 for local_param, global_param in zip(parameters, global_params):
                     local_param.data = global_param.clone()
 
-                # y_{0,i}^{(r)} <- 0 each round (Alg. 2). The subtracted "previous" stochastic gradient
-                # ∇f_i(x_{t-1,i}^{(r)}; ξ_{t-1}) is stored in prev_stochastic_grad: for t=0 it is the
-                # gradient from the end of the worker's last participating round (paper text after (22)),
-                # so we do not reset prev_stochastic_grad here.
+                # y_{0,i}^{(r)} <- 0 each round (Alg. 2). The subtracted "previous" direction
+                # ∇f_i(x_{t-1,i}^{(r)}; ξ_{t-1}) is stored in prev_local_direction: for t=0 it is the
+                # direction from the end of the worker's last participating round (paper text after
+                # (22)), so we do not reset prev_local_direction here.
 
                 # Initialize y_0,i = 0 for the current round
                 y_i = [torch.zeros_like(p).to(training_device) for p in parameters]
@@ -215,31 +216,48 @@ class SGFocus:
                 event_logger.log_start("local sgd")
                 
                 for step in range(self.parent.tau):
-                    epoch, batch = next(batch_data_gen)
                     time_for_lr_schedule = time.time() - training_start_time
-                    local_lr = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
-                    _, current_stochastic_grad, state = training_task.loss_and_gradient(
+                    for snapshot, param in zip(params_before_step, parameters):
+                        snapshot.copy_(param)
+
+                    epoch, _ = self.parent.local_sgd(
+                        training_task,
                         parameters,
                         state,
-                        batch,
+                        base_optimizer,
+                        base_optimizer_state,
+                        batch_data_gen,
+                        time_for_lr_schedule,
+                        1,
                     )
+                    local_lr = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
 
-                    # y_{t+1,i} = y_{t,i} + current_grad - prev_grad
-                    for y, current_grad, prev_grad in zip(y_i, current_stochastic_grad, prev_stochastic_grad):
-                        y.data += current_grad - prev_grad
+                    # Recover the direction the base optimizer actually applied, (x_t - x_new) / eta,
+                    # so momentum (or Adam preconditioning) is tracked by y_i rather than bypassing it.
+                    # eta is 0 during lr warmup, in which case nothing moved and the direction is 0.
+                    inverse_lr = 1.0 / local_lr if local_lr > 0 else 0.0
+                    current_direction = [
+                        (snapshot - param) * inverse_lr
+                        for snapshot, param in zip(params_before_step, parameters)
+                    ]
 
-                    # x_{t+1,i} = x_{t,i} - eta * y_{t+1,i}
-                    for param, y in zip(parameters, y_i):
-                        param.data -= local_lr * y
+                    # y_{t+1,i} = y_{t,i} + current_direction - prev_direction
+                    for y, current, prev in zip(y_i, current_direction, prev_local_direction):
+                        y.data += current - prev
 
-                    # Store current stochastic gradient for the next local step.
-                    for prev_grad, current_grad in zip(prev_stochastic_grad, current_stochastic_grad):
-                        prev_grad.data.copy_(current_grad)
+                    # x_{t+1,i} = x_{t,i} - eta * y_{t+1,i}. local_sgd already moved along
+                    # current_direction, so applying the residual leaves exactly the tracked step.
+                    for param, y, current in zip(parameters, y_i, current_direction):
+                        param.data -= local_lr * (y - current)
+
+                    # Store the current direction for the next local step.
+                    for prev, current in zip(prev_local_direction, current_direction):
+                        prev.data.copy_(current)
                 
                 event_logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
                 
                 
-                # Send the gradient difference to the server
+                # Send y_{tau,i} to the server
                 event_logger.log_start("communication")
                 grad_update_buffer = pack(y_i).to(comm_device)
                 dist.send(tensor=grad_update_buffer, dst=0)
