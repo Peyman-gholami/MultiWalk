@@ -159,7 +159,12 @@ class SGFocus:
         # Initialize task and model
         training_task = self.parent.configure_task(client_rank, training_device)
         parameters, state = training_task.initialize(self.parent.config["seed"])
-        # Initialize previous stochastic gradient for local updates
+        # Match official FedASL/SG-FOCUS: plain CE gradients, no weight-decay term in y.
+        if hasattr(training_task, "_weight_decay_per_param"):
+            training_task._weight_decay_per_param = [
+                0.0 for _ in training_task._weight_decay_per_param
+            ]
+        # grad_prev persists across rounds (Alg. 2 init: ∇f_i(x_{-1}; ξ_{-1}) = 0).
         prev_stochastic_grad = [torch.zeros_like(param).to(training_device) for param in parameters]
         # # Initialize y
         # y_i = [torch.zeros_like(param).to(training_device) for param in parameters]
@@ -195,42 +200,37 @@ class SGFocus:
                 logging.info(f"[SG-FOCUS Client {client_rank}] received the model!")
                 
                 global_params = [global_param.to(training_device) for global_param in global_params]
-                
-                # Update local parameters with global model
+
                 for local_param, global_param in zip(parameters, global_params):
-                    local_param.data = global_param.clone()
+                    local_param.copy_(global_param)
 
-                # y_{0,i}^{(r)} <- 0 each round (Alg. 2). The subtracted "previous" stochastic gradient
-                # ∇f_i(x_{t-1,i}^{(r)}; ξ_{t-1}) is stored in prev_stochastic_grad: for t=0 it is the
-                # gradient from the end of the worker's last participating round (paper text after (22)),
-                # so we do not reset prev_stochastic_grad here.
-
-                # Initialize y_0,i = 0 for the current round
-                y_i = [torch.zeros_like(p).to(training_device) for p in parameters]
+                # y_{0,i}^{(r)} <- 0 each round; grad_prev is NOT reset (FedASL/client.py).
+                y_i = [torch.zeros_like(p, device=training_device) for p in parameters]
 
                 event_logger.log_start("local sgd")
-                
+
                 for step in range(self.parent.tau):
                     epoch, batch = next(batch_data_gen)
                     time_for_lr_schedule = time.time() - training_start_time
                     local_lr = self.parent.config["learning_rate"] * self.parent.learning_rate_schedule(time_for_lr_schedule)
+
+                    # FedASLClient applies x <- x - lr*y at the start of step k>0 using
+                    # y from the previous step (equivalent to Alg. 2 lines 7-8).
+                    if step > 0:
+                        for param, y in zip(parameters, y_i):
+                            param.add_(y, alpha=-local_lr)
+
                     _, current_stochastic_grad, state = training_task.loss_and_gradient(
                         parameters,
                         state,
                         batch,
                     )
 
-                    # y_{t+1,i} = y_{t,i} + current_grad - prev_grad
                     for y, current_grad, prev_grad in zip(y_i, current_stochastic_grad, prev_stochastic_grad):
-                        y.data += current_grad - prev_grad
+                        y.add_(current_grad - prev_grad)
 
-                    # x_{t+1,i} = x_{t,i} - eta * y_{t+1,i}
-                    for param, y in zip(parameters, y_i):
-                        param.data -= local_lr * y
-
-                    # Store current stochastic gradient for the next local step.
                     for prev_grad, current_grad in zip(prev_stochastic_grad, current_stochastic_grad):
-                        prev_grad.data.copy_(current_grad)
+                        prev_grad.copy_(current_grad)
                 
                 event_logger.log_end("local sgd", {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch})
                 
