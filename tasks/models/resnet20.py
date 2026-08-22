@@ -8,7 +8,7 @@ Koloskova and Lin et al. 2020. Decentralized Deep Learning with Arbitrary Commun
 https://github.com/epfml/ChocoSGD/blob/master/dl_code/pcode/models/resnet.py @ c7715b368cc9f66674720ea9c823032c8058bdf6
 """
 
-__all__ = ["ResNet20"]
+__all__ = ["ResNet20", "ResNet_cifar"]
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -274,8 +274,10 @@ class ResNet_cifar(ResNetBase):
         return x
 
 
-def ResNet20(use_batchnorm=True):
-    return ResNet_cifar("cifar10", 20)
+def ResNet20(dataset="cifar10", use_batchnorm=True):
+    if dataset not in ("cifar10", "cifar100", "svhn"):
+        raise ValueError(f"Unsupported ResNet20 dataset '{dataset}'")
+    return ResNet_cifar(dataset, 20)
 
 
 def get_resnet_separation_point(model: nn.Module) -> int:
