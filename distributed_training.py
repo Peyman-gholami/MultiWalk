@@ -90,6 +90,21 @@ class DecentralizedTraining:
                 non_iid_alpha=self.config["non_iid_alpha"],
                 seed=self.config["seed"] + 100
             )
+        if self.config["task"] == "SVHN":
+            from tasks.svhn import SVHNTask
+
+            return SVHNTask(
+                rank=rank,
+                device=device,
+                num_workers=self.size,
+                weight_decay=self.config["weight_decay"],
+                model_name=self.config["model_name"],
+                data_split_method=self.config["data_split_method"],
+                train_eval_frac=self.train_eval_frac,
+                lock=self.lock,
+                non_iid_alpha=self.config["non_iid_alpha"],
+                seed=self.config["seed"] + 100
+            )
         if self.config["task"] == "MNLI":
             from tasks.mnli import MNLITask
 
@@ -109,7 +124,12 @@ class DecentralizedTraining:
     def create_model(self):
         if self.config["model_name"] == "ResNet20":
             from tasks.models.resnet20 import ResNet20
-            dataset = "cifar100" if self.config["task"] == "Cifar100" else "cifar10"
+            if self.config["task"] == "Cifar100":
+                dataset = "cifar100"
+            elif self.config["task"] == "SVHN":
+                dataset = "svhn"
+            else:
+                dataset = "cifar10"
             with fork_rng_with_seed(self.config["seed"]):
                 model = ResNet20(dataset=dataset)
         elif "opt" in self.config["model_name"]:
