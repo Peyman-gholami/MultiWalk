@@ -13,7 +13,7 @@ config = {
     'evaluation': ['start_time', 'train loss', 'test loss']
 }
 
-duration = 15 * 60
+duration = 120 * 60
 local_steps_per_iter = 5
 
 def check_criteria(log_file, criteria):
@@ -86,6 +86,8 @@ def parse_log_file(filename):
                 # Extract the log information (everything after the log file name)
                 log_info = line[first_colon_index + 1:].strip()
                 event_type, extracted_values = parse_line(log_info)
+                if event_type not in parsed_data:
+                    continue
                 parsed_data[event_type].append(extracted_values)
     return parsed_data
 
@@ -157,7 +159,9 @@ def aggregate_logs(base_path, criteria):
 # base_path = '/Users/peymangholami/.kube/topology_logs'
 # base_path = '/Users/peymangholami/.kube/new_lr_logs' # for cycle and alpha=0.1
 # base_path = '/Users/peymangholami/.kube/cycle_logs'
+base_path = '/Users/peymangholami/.kube/extra_iter_mw'  # for extra iterations
 criterias = [
+        ["rw1_g=erdos_renyi", "algorithm=random_walk"],
         
         # for failiure
         # ["algorithm=random_walk", "failure_times=[5","split_method=random"],
@@ -189,11 +193,11 @@ criterias = [
 
 
         #new cycle noniid
-        ["rw=1graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
-        ["rw=2graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
-        ["rw=4graph","split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
-        ["rw=6graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
-        ["split_method=dirichlet_non_iid_alpha=10","algorithm=async"],    
+        # ["rw=1graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
+        # ["rw=2graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
+        # ["rw=4graph","split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
+        # ["rw=6graph", "split_method=dirichlet_non_iid_alpha=10", "algorithm=random_walk"],
+        # ["split_method=dirichlet_non_iid_alpha=10","algorithm=async"],    
 
 
         # ["rw=1graph", "split_method=dirichlet_non_iid_alpha=1.0", "algorithm=random_walk"],
