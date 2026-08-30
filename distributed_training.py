@@ -56,7 +56,7 @@ class DecentralizedTraining:
         init_method = f'tcp://{self.master_address}:{port}'
         logging.info(f"Before [{group_name}] Rank {rank} initialized with backend {backend} on port {port}")
         dist.init_process_group(backend, rank=rank, world_size=size, init_method=init_method,
-                                timeout=timedelta(hours=2))
+                                timeout=timedelta(minutes=30))
         logging.info(f"[{group_name}] Rank {rank} initialized with backend {backend} on port {port}")
 
     def configure_task(self, rank, device) -> Task:
