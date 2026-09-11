@@ -16,8 +16,6 @@ from __future__ import annotations
 import math
 from typing import List, Sequence, Union
 
-import torch
-
 
 PARTICIPATION_PATTERNS = (
     "uniform",
@@ -139,6 +137,8 @@ def select_participating_clients(
       participation_period:  cycle length in rounds (default: 50)
       seed:                  RNG seed
     """
+    import torch  # only needed for sampling, not for probability curves
+
     pattern = str(config.get("participation_pattern", "uniform")).lower()
     high = config.get("participation_rate", 1.0)
     low = config.get("participation_low", 0.0)

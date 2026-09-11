@@ -126,7 +126,8 @@ if __name__ == "__main__":
     parser.add_argument('--fedprox_param', type=float, default=0.0, help='FedProx proximal parameter (mu)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--task', type=str, choices=['Cifar', 'Cifar100', 'SVHN', 'MNLI'], default="Cifar", help='Task name')
-    parser.add_argument('--model_name', type=str, default="ResNet20", help='Model name')
+    parser.add_argument('--model_name', type=str, default="ResNet20",
+                        help='Model name (e.g. ResNet20, SimpleCNN for CIFAR-10/SVHN)')
     parser.add_argument('--data_split_method', type=str, choices=['random', 'dirichlet'], default="dirichlet", help='Data split method')
     parser.add_argument('--non_iid_alpha', type=float, default=1.0, help='Non-IID alpha value')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size per worker')

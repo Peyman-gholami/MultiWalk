@@ -1,4 +1,6 @@
 from .async_gossip import AsyncGossip
+from .fedau import FedAU
+from .fedawe import FedAWE
 from .fedavg import FedAVG
 from .fedprox import FedProx
 from .mifa import MIFA
@@ -9,6 +11,8 @@ from .split_random_walk import SplitRandomWalk
 
 __all__ = [
     "AsyncGossip",
+    "FedAU",
+    "FedAWE",
     "FedAVG",
     "FedProx",
     "HScaffold",

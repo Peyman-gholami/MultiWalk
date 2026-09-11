@@ -132,17 +132,32 @@ class DecentralizedTraining:
                 dataset = "cifar10"
             with fork_rng_with_seed(self.config["seed"]):
                 model = ResNet20(dataset=dataset)
+        elif self.config["model_name"] == "SimpleCNN":
+            from tasks.models.simple_cnn import SimpleCNN
+            if self.config["task"] == "SVHN":
+                dataset = "svhn"
+            elif self.config["task"] == "Cifar":
+                dataset = "cifar10"
+            else:
+                raise ValueError(f"SimpleCNN is not supported for task '{self.config['task']}'")
+            with fork_rng_with_seed(self.config["seed"]):
+                model = SimpleCNN(dataset=dataset)
         elif "opt" in self.config["model_name"]:
             from tasks.models.llm import LLM
 
             with fork_rng_with_seed(self.config["seed"]):
                 model = LLM(self.config["model_name"])
+        else:
+            raise ValueError(f"Unsupported model_name '{self.config['model_name']}'")
         return model
 
     def get_model_separation_point(self, model):
         if self.config["model_name"] == "ResNet20":
             from tasks.models.resnet20 import get_resnet_separation_point
             return get_resnet_separation_point(model)
+        elif self.config["model_name"] == "SimpleCNN":
+            from tasks.models.simple_cnn import get_simple_cnn_separation_point
+            return get_simple_cnn_separation_point(model)
         elif "opt" in self.config["model_name"]:
             from tasks.models.llm import get_resnet_separation_point
             return get_resnet_separation_point(model)

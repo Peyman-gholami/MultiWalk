@@ -260,12 +260,20 @@ class CifarTask(Task):
             model = ResNet20()
             model.to(self._device)
             model.train()
+        elif self._model_name == "SimpleCNN":
+            from .models.simple_cnn import SimpleCNN
+
+            model = SimpleCNN(dataset="cifar10")
+            model.to(self._device)
+            model.train()
         elif self._model_name == "VGG-11":
             from .models.vgg import vgg11
 
             model = vgg11()
             model.to(self._device)
             model.train()
+        else:
+            raise ValueError(f"Unsupported model_name '{self._model_name}' for Cifar")
         return model
 
 
