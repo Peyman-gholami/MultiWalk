@@ -10,21 +10,37 @@ from logger import EventLogger
 from utils.participation import select_participating_clients as sample_participating_clients
 
 
+def clip_update(tensors, max_norm):
+    """Frobenius clip of a concatenated parameter update (official FedAWE)."""
+    if max_norm is None or max_norm <= 0:
+        return tensors
+    total_sq = sum(t.detach().float().pow(2).sum() for t in tensors)
+    norm = total_sq.sqrt().item()
+    if norm > max_norm:
+        scale = max_norm / norm
+        return [t * scale for t in tensors]
+    return tensors
+
+
 class FedAWE:
-    """Federated Averaging with Weighted Elasticity (FedAWE).
+    """Federated Agile Weight Re-Equalization (FedAWE).
 
     Clients keep a local model between rounds. Active clients run s local SGD
-    steps from their local model, form
-        G_i^t = x_i^t - x_i^{(t,s)}
-        x_i^{t†} = x_i^{(t,0)} - η_g (t - τ_i(t)) G_i^t
-    and report x_i^{t†}. The server averages those reports. Active clients then
-    sync to the new global model; inactive clients keep their local model and τ.
+    steps from their local model and report
+        start_i = x_i^{(t,0)}
+        Δ_i = (t - τ_i(t)) (x_i^{(t,s)} - x_i^{(t,0)})
+    The server aggregates as in the official implementation:
+        x^{t+1} = avg(start) + η_g * clip(avg(Δ), clip_norm)
+    Active clients then sync to the new global model; inactive clients keep
+    their local model and τ.
     """
 
     def __init__(self, parent):
         self.parent = parent
         self.participation_rate = parent.config.get("participation_rate", 1)
         self.global_learning_rate = parent.config.get("global_learning_rate", 1.0)
+        # Official repo clips the averaged echoed delta to Frobenius norm 0.5.
+        self.clip_norm = float(parent.config.get("fedawe_clip", 0.5))
 
     def select_participating_clients(self, round_number, total_clients):
         return sample_participating_clients(self.parent.config, round_number, total_clients)
@@ -47,15 +63,24 @@ class FedAWE:
         logging.info(f"[FedAWE Server] Round {round_number}, all notifications sent")
 
     def receive_from_clients(self, participating_clients, global_parameters):
+        """Receive (start, echoed_delta) pairs packed back-to-back from each client."""
+        shapes = [p.shape for p in global_parameters]
+        payload_shapes = shapes + shapes
         receive_info = []
         for client_rank in participating_clients:
-            buf = torch.zeros_like(pack(global_parameters))
+            # Placeholder zeros with the correct payload length (2x model).
+            buf = torch.zeros_like(pack(list(global_parameters) + list(global_parameters)))
             receive_info.append((dist.irecv(tensor=buf, src=client_rank), buf, client_rank))
 
         out = {}
+        n = len(shapes)
         for req, buf, client_rank in receive_info:
             req.wait()
-            out[client_rank] = unpack(buf, [p.shape for p in global_parameters])
+            tensors = unpack(buf, payload_shapes)
+            out[client_rank] = {
+                "start": tensors[:n],
+                "delta": tensors[n:],
+            }
         return out
 
     def send_global_to_clients(self, participating_clients, global_parameters, device, logger, round_number, server_rank):
@@ -101,16 +126,21 @@ class FedAWE:
 
             self.notify_clients(participating, communication_device, current_round)
 
-            # Active clients train from their local models and report x_i^{t†}
+            # Active clients report (start_i, (t-τ_i)(end_i - start_i))
             client_updates = self.receive_from_clients(participating, global_parameters)
 
-            # x^{t+1} <- (1/|A^t|) sum_{i in A^t} x_i^{t†}
-            for gp in global_parameters:
-                gp.data.zero_()
+            # avg(start) + η_g * clip(avg(Δ), clip_norm)
             inv_n = 1.0 / len(participating)
-            for tensors in client_updates.values():
-                for gp, update in zip(global_parameters, tensors):
-                    gp.data.add_(update.to(communication_device), alpha=inv_n)
+            avg_start = [torch.zeros_like(p) for p in global_parameters]
+            avg_delta = [torch.zeros_like(p) for p in global_parameters]
+            for update in client_updates.values():
+                for s_acc, d_acc, s, d in zip(avg_start, avg_delta, update["start"], update["delta"]):
+                    s_acc.add_(s.to(communication_device), alpha=inv_n)
+                    d_acc.add_(d.to(communication_device), alpha=inv_n)
+
+            clipped_delta = clip_update(avg_delta, self.clip_norm)
+            for gp, s, d in zip(global_parameters, avg_start, clipped_delta):
+                gp.data.copy_(s + self.global_learning_rate * d)
 
             # Sync new global model to active clients only
             self.send_global_to_clients(
@@ -188,16 +218,16 @@ class FedAWE:
                 {"rank": client_rank, "iteration": self.parent.tau, "epoch": epoch},
             )
 
-            # G_i^t = x_i^t - x_i^{(t,s)}
-            # x_i^{t†} = x_i^{(t,0)} - η_g (t - τ_i(t)) G_i^t
-            elasticity = self.global_learning_rate * (current_round - last_active_round)
-            x_dagger = [
-                start.to(comm_device) - elasticity * (start.to(comm_device) - p.to(comm_device))
+            # Report start and echoed delta; η_g and clip are applied on the server.
+            gap = current_round - last_active_round
+            echoed_delta = [
+                gap * (p.to(comm_device) - start.to(comm_device))
                 for start, p in zip(x_start, parameters)
             ]
+            payload = [s.to(comm_device) for s in x_start] + echoed_delta
 
             event_logger.log_start("communication")
-            out_buf = pack(x_dagger)
+            out_buf = pack(payload)
             dist.send(tensor=out_buf, dst=0)
             event_logger.log_end(
                 "communication",
