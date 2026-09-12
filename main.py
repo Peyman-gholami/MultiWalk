@@ -56,6 +56,7 @@ def build_log_name(size, rank, num_rw, args, specific_keys):
         "base_optimizer": "opt",
         "split_random_walk_ratio": "srw",
         "fedprox_param": "mu",
+        "fedau_k": "fedauk",
         "failure_times": "fail",
         "participation_rate": "prate",
         "participation_pattern": "ppat",
@@ -67,6 +68,8 @@ def build_log_name(size, rank, num_rw, args, specific_keys):
     for key in specific_keys:
         value = getattr(args, key)
         if key == "fedprox_param" and args.algorithm != "fedprox" and value == 0.0:
+            continue
+        if key == "fedau_k" and args.algorithm != "fedau" and value == 50:
             continue
         if key == "split_random_walk_ratio" and args.algorithm != "split_random_walk" and value == 1:
             continue
@@ -111,7 +114,7 @@ if __name__ == "__main__":
     parser.add_argument('--group_names', type=str, nargs='+', default=['group1', 'group2'], help='List of group names')
     parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for asynchronous gossip')
     parser.add_argument('--global_learning_rate', type=float, default=1.0, help='Global earning rate for federated settings')
-    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk', 'fedavg', 'fedprox', 'mifa', 'scaffold', 'huscaffold', 'hscaffold', 'sgfocus'], required=True,
+    parser.add_argument('--algorithm', type=str, choices=['random_walk', 'async_gossip', 'async_gossip_general', 'split_random_walk', 'fedavg', 'fedawe', 'fedau', 'fedprox', 'mifa', 'scaffold', 'huscaffold', 'hscaffold', 'sgfocus'], required=True,
                         help='Algorithm to run')
     parser.add_argument('--split_random_walk_ratio', type=int, default=1, help='Split random walk ratio')
     parser.add_argument('--participation_rate', type=float, nargs='+', default=[1.0],
@@ -124,6 +127,7 @@ if __name__ == "__main__":
     parser.add_argument('--participation_period', type=int, default=50,
                         help='Cycle length in rounds for non-stationary participation patterns')
     parser.add_argument('--fedprox_param', type=float, default=0.0, help='FedProx proximal parameter (mu)')
+    parser.add_argument('--fedau_k', type=int, default=50, help='FedAU interval cap K for aggregation weights')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--task', type=str, choices=['Cifar', 'Cifar100', 'SVHN', 'MNLI'], default="Cifar", help='Task name')
     parser.add_argument('--model_name', type=str, default="ResNet20",
@@ -153,7 +157,7 @@ if __name__ == "__main__":
     master_address = MASTER_ADDR
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
-    specific_keys = ['graph', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha', 'tau', 'fedprox_param', 'participation_rate', 'participation_pattern', 'seed']
+    specific_keys = ['graph', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'data_split_method', 'non_iid_alpha', 'tau', 'fedprox_param', 'fedau_k', 'participation_rate', 'participation_pattern', 'seed']
     log_name = build_log_name(size, rank, len(args.group_names), args, specific_keys)
     if args.algorithm == 'async_gossip':
         output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
@@ -172,6 +176,7 @@ if __name__ == "__main__":
         "participation_low": args.participation_low,
         "participation_period": args.participation_period,
         "fedprox_param": args.fedprox_param,
+        "fedau_k": args.fedau_k,
         "data_split_method": args.data_split_method,
         "non_iid_alpha": args.non_iid_alpha,
         "batch_size": args.batch_size,

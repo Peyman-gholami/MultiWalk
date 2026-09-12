@@ -8,6 +8,8 @@ from torch.multiprocessing import Lock
 
 from algorithms import (
     AsyncGossip,
+    FedAU,
+    FedAWE,
     FedAVG,
     FedProx,
     HScaffold,
@@ -239,6 +241,12 @@ class DecentralizedTraining:
         elif self.algorithm == 'fedavg':
             fedavg = FedAVG(self)
             fedavg.run(rank)
+        elif self.algorithm == 'fedawe':
+            fedawe = FedAWE(self)
+            fedawe.run(rank)
+        elif self.algorithm == 'fedau':
+            fedau = FedAU(self)
+            fedau.run(rank)
         elif self.algorithm == 'fedprox':
             fedprox = FedProx(self)
             fedprox.run(rank)
