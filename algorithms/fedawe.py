@@ -141,6 +141,10 @@ class FedAWE:
         training_device = torch.device(f"cuda:{self.parent.local_rank}" if torch.cuda.is_available() else "cpu")
         event_logger = EventLogger(log_file_name=self.parent.log_name)
 
+        # Official FedAWE uses plain SGD: no momentum / weight decay.
+        self.parent.config["momentum"] = 0.0
+        self.parent.config["weight_decay"] = 0.0
+
         training_task = self.parent.configure_task(client_rank, training_device)
         parameters, state = training_task.initialize(self.parent.config["seed"])
         base_optimizer = configure_base_optimizer(self.parent.config)
