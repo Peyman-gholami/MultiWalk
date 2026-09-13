@@ -6,6 +6,7 @@ Patterns match the common experimental regimes:
   - staircase:         square wave between high_i/low_i with phase shift across clients
   - sine:              smooth oscillation in [low_i, high_i]
   - interleaved_sine:  half-sine pulses separated by inactivity (zeros); peak = high_i
+  - exponential:       half the clients decay high→low, half rise low→high (exp curves)
 
 `participation_rate` / `participation_low` may be a single float (shared by all
 clients) or a list of length N (one value per client, client index 0..N-1).
@@ -23,6 +24,7 @@ PARTICIPATION_PATTERNS = (
     "staircase",
     "sine",
     "interleaved_sine",
+    "exponential",
 )
 
 FloatOrList = Union[float, Sequence[float]]
@@ -96,6 +98,20 @@ def participation_probability(
         # Half-sine bumps with inactivity between them; peak is high_i.
         wave = math.sin(2.0 * math.pi * progress)
         return _clamp01(high * max(0.0, wave))
+
+    if pattern == "exponential":
+        # Shared clock (no phase): first half of clients decay high→low, second half
+        # rise low→high. Mirror pairs keep sum_i p_i constant when high/low match.
+        k = 3.0
+        progress = (round_number % period) / period
+        denom = 1.0 - math.exp(-k)
+        if denom <= 0.0:
+            return high if client_index < num_clients // 2 else low
+        if client_index < num_clients // 2:
+            weight = (math.exp(-k * progress) - math.exp(-k)) / denom  # 1 → 0
+        else:
+            weight = (1.0 - math.exp(-k * progress)) / denom  # 0 → 1
+        return _clamp01(low + (high - low) * weight)
 
     raise ValueError(
         f"Unknown participation pattern '{pattern}'. "

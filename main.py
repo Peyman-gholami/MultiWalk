@@ -120,7 +120,7 @@ if __name__ == "__main__":
     parser.add_argument('--participation_rate', type=float, nargs='+', default=[1.0],
                         help='High participation probability: one value for all clients, or one per client')
     parser.add_argument('--participation_pattern', type=str, default='uniform',
-                        choices=['uniform', 'stationary', 'staircase', 'sine', 'interleaved_sine'],
+                        choices=['uniform', 'stationary', 'staircase', 'sine', 'interleaved_sine', 'exponential'],
                         help='How p_i^r varies over clients and rounds')
     parser.add_argument('--participation_low', type=float, nargs='+', default=[0.0],
                         help='Low participation probability: one value for all clients, or one per client')
