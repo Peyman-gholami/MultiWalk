@@ -235,10 +235,11 @@ class Cifar100Task(Task):
         return output, state
 
     def _create_model(self):
-        if self._model_name == "ResNet20":
-            from .models.resnet20 import ResNet20
+        if self._model_name in ("ResNet20", "ResNet56"):
+            from .models.resnet20 import ResNet20, ResNet56
 
-            model = ResNet20(dataset="cifar100")
+            ctor = ResNet20 if self._model_name == "ResNet20" else ResNet56
+            model = ctor(dataset="cifar100")
             model.to(self._device)
             model.train()
         elif self._model_name == "VGG-11":
@@ -247,6 +248,8 @@ class Cifar100Task(Task):
             model = vgg11()
             model.to(self._device)
             model.train()
+        else:
+            raise ValueError(f"Unsupported model_name '{self._model_name}' for Cifar100")
         return model
 
 

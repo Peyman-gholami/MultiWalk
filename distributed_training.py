@@ -124,16 +124,17 @@ class DecentralizedTraining:
             )
 
     def create_model(self):
-        if self.config["model_name"] == "ResNet20":
-            from tasks.models.resnet20 import ResNet20
+        if self.config["model_name"] in ("ResNet20", "ResNet56"):
+            from tasks.models.resnet20 import ResNet20, ResNet56
             if self.config["task"] == "Cifar100":
                 dataset = "cifar100"
             elif self.config["task"] == "SVHN":
                 dataset = "svhn"
             else:
                 dataset = "cifar10"
+            ctor = ResNet20 if self.config["model_name"] == "ResNet20" else ResNet56
             with fork_rng_with_seed(self.config["seed"]):
-                model = ResNet20(dataset=dataset)
+                model = ctor(dataset=dataset)
         elif self.config["model_name"] == "SimpleCNN":
             from tasks.models.simple_cnn import SimpleCNN
             if self.config["task"] == "SVHN":
@@ -154,7 +155,7 @@ class DecentralizedTraining:
         return model
 
     def get_model_separation_point(self, model):
-        if self.config["model_name"] == "ResNet20":
+        if self.config["model_name"] in ("ResNet20", "ResNet56"):
             from tasks.models.resnet20 import get_resnet_separation_point
             return get_resnet_separation_point(model)
         elif self.config["model_name"] == "SimpleCNN":

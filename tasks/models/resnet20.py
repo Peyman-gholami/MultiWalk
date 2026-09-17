@@ -8,7 +8,7 @@ Koloskova and Lin et al. 2020. Decentralized Deep Learning with Arbitrary Commun
 https://github.com/epfml/ChocoSGD/blob/master/dl_code/pcode/models/resnet.py @ c7715b368cc9f66674720ea9c823032c8058bdf6
 """
 
-__all__ = ["ResNet20", "ResNet_cifar"]
+__all__ = ["ResNet20", "ResNet56", "ResNet_cifar"]
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -236,7 +236,13 @@ class ResNet_cifar(ResNetBase):
         if resnet_size % 6 != 2:
             raise ValueError("resnet_size must be 6n + 2:", resnet_size)
         block_nums = (resnet_size - 2) // 6
-        block_fn = Bottleneck if resnet_size >= 44 else BasicBlock
+        # He et al. CIFAR ResNets (20/32/44/56/110) use basic blocks.
+        # Bottleneck CIFAR nets (164, 1001) use a different depth formula.
+        if resnet_size >= 164:
+            raise ValueError(
+                f"Bottleneck CIFAR ResNets are not supported (got depth {resnet_size})"
+            )
+        block_fn = BasicBlock
 
         # decide the num of classes.
         self.num_classes = self._decide_num_classes()
@@ -278,6 +284,12 @@ def ResNet20(dataset="cifar10", use_batchnorm=True):
     if dataset not in ("cifar10", "cifar100", "svhn"):
         raise ValueError(f"Unsupported ResNet20 dataset '{dataset}'")
     return ResNet_cifar(dataset, 20)
+
+
+def ResNet56(dataset="cifar100", use_batchnorm=True):
+    if dataset not in ("cifar10", "cifar100", "svhn"):
+        raise ValueError(f"Unsupported ResNet56 dataset '{dataset}'")
+    return ResNet_cifar(dataset, 56)
 
 
 def get_resnet_separation_point(model: nn.Module) -> int:
