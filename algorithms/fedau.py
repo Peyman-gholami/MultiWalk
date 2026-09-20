@@ -112,7 +112,7 @@ class FedAU:
         training_start_time = time.time()
         training_end_time = training_start_time + self.parent.train_time * 60
 
-        while time.time() < training_end_time:
+        while self.parent.keep_training(current_round, training_end_time):
             # For t >= 1, refresh ω_t from I_{t-1} before aggregating this round
             if current_round >= 1:
                 self.advance_weights(omega, M, S_diamond, participated_prev)

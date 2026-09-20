@@ -48,6 +48,7 @@ def build_log_name(size, rank, num_rw, args, specific_keys):
     log_key_abbrev = {
         "graph": "g",
         "train_time": "tt",
+        "num_rounds": "rounds",
         "learning_rate": "lr",
         "global_learning_rate": "glr",
         "task": "t",
@@ -77,6 +78,8 @@ def build_log_name(size, rank, num_rw, args, specific_keys):
         if key == "split_random_walk_ratio" and args.algorithm != "split_random_walk" and value == 1:
             continue
         if key == "failure_times" and not value:
+            continue
+        if key == "num_rounds" and not value:
             continue
         if key == "participation_pattern" and value == "uniform":
             continue
@@ -113,6 +116,8 @@ if __name__ == "__main__":
     parser.add_argument('--graph', type=str, choices=['erdos_renyi', 'cycle', 'complete'], default='erdos_renyi', help='Graph topology')
     parser.add_argument('--tau', type=int, default=5, help='Number of SGD steps per node')
     parser.add_argument('--train_time', type=int, default=5, help='Time in minutes to run')
+    parser.add_argument('--num_rounds', type=int, default=0,
+                        help='Number of server rounds to run. When > 0 this replaces the train_time limit.')
     parser.add_argument('--ports', type=int, nargs='+', default=[29500, 29501], help='List of ports for the groups')
     parser.add_argument('--group_names', type=str, nargs='+', default=['group1', 'group2'], help='List of group names')
     parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate for asynchronous gossip')
@@ -160,7 +165,7 @@ if __name__ == "__main__":
     master_address = MASTER_ADDR
     local_rank = LOCAL_RANK
     rank = WORLD_RANK
-    specific_keys = ['graph', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'model_name', 'data_split_method', 'non_iid_alpha', 'tau', 'fedprox_param', 'fedau_k', 'participation_rate', 'participation_pattern', 'seed']
+    specific_keys = ['graph', 'learning_rate', 'global_learning_rate', 'algorithm', 'task', 'model_name', 'data_split_method', 'non_iid_alpha', 'tau', 'num_rounds', 'fedprox_param', 'fedau_k', 'participation_rate', 'participation_pattern', 'seed']
     log_name = build_log_name(size, rank, len(args.group_names), args, specific_keys)
     if args.algorithm == 'async_gossip':
         output_file = f'./configs/bipartite_{args.graph}_graph_{size}_nodes.json'
@@ -201,6 +206,7 @@ if __name__ == "__main__":
         local_rank = local_rank,
         tau=args.tau,
         train_time=args.train_time,
+        num_rounds=args.num_rounds,
         neighbors=neighbors,
         top_nodes=top_nodes,
         rw_starting_ranks=rw_starting_ranks,

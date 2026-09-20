@@ -31,11 +31,12 @@ logging.basicConfig(level=logging.CRITICAL)
 
 class DecentralizedTraining:
     def __init__(self, size, local_rank, tau, train_time, neighbors, top_nodes, rw_starting_ranks, master_address, ports, group_names, algorithm, config, evaluate_interval,
-                 eval_gpu, train_eval_frac, no_test_set_eval, log_name, failure_times=None):
+                 eval_gpu, train_eval_frac, no_test_set_eval, log_name, failure_times=None, num_rounds=0):
         self.size = size
         self.local_rank = local_rank
         self.tau = tau
         self.train_time = train_time
+        self.num_rounds = num_rounds
         self.neighbors = neighbors
         self.top_nodes = top_nodes
         self.rw_starting_ranks = rw_starting_ranks
@@ -179,6 +180,12 @@ class DecentralizedTraining:
             else:
                 return lr
         return lr
+
+    def keep_training(self, current_round, training_end_time):
+        """Server stopping rule: a fixed round budget when num_rounds is set, wall-clock otherwise."""
+        if self.num_rounds > 0:
+            return current_round < self.num_rounds
+        return time.time() < training_end_time
 
     def evaluation_process(self, gpu_id, shared_arrays, shared_state, eval_process_active, shared_array_index=None):
         logger = EventLogger(log_file_name=self.log_name)

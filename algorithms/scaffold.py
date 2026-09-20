@@ -134,7 +134,7 @@ class Scaffold:
         training_start_time = time.time()
         training_end_time = training_start_time + self.parent.train_time * 60
 
-        while time.time() < training_end_time:
+        while self.parent.keep_training(current_round, training_end_time):
             # Select participating clients
             participating_clients = self.select_participating_clients(current_round, self.parent.size-1)
             logging.info(f"[SCAFFOLD Server] Round {current_round}, Participants: {participating_clients}")
@@ -352,7 +352,7 @@ class HUScaffold(Scaffold):
         training_start_time = time.time()
         training_end_time = training_start_time + self.parent.train_time * 60
 
-        while time.time() < training_end_time:
+        while self.parent.keep_training(current_round, training_end_time):
             # Select participating clients
             participating_clients = self.select_participating_clients(current_round, self.parent.size-1)
             logging.info(f"[HUSCAFFOLD Server] Round {current_round}, Participants: {participating_clients}")
@@ -566,7 +566,7 @@ class HScaffold(Scaffold):
         training_start_time = time.time()
         training_end_time = training_start_time + self.parent.train_time * 60
 
-        while time.time() < training_end_time:
+        while self.parent.keep_training(current_round, training_end_time):
             # Select participating clients
             participating_clients = self.select_participating_clients(current_round, self.parent.size-1)
             logging.info(f"[HSCAFFOLD Server] Round {current_round}, Participants: {participating_clients}")

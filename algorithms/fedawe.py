@@ -95,7 +95,7 @@ class FedAWE:
         training_start_time = time.time()
         training_end_time = training_start_time + self.parent.train_time * 60
 
-        while time.time() < training_end_time:
+        while self.parent.keep_training(current_round, training_end_time):
             participating = self.select_participating_clients(current_round, num_clients)
             logging.info(f"[FedAWE Server] Round {current_round}, participants: {participating}")
 
