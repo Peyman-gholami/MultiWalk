@@ -38,7 +38,7 @@ def ensure_cifar100_data(data_root: str = "./data/") -> None:
             logging.info("Downloading CIFAR-100 from %s", url)
             with tempfile.NamedTemporaryFile(delete=False, dir=root, suffix=".tar.gz.part") as tmp:
                 tmp_path = Path(tmp.name)
-                with urllib.request.urlopen(url, timeout=60) as response:
+                with urllib.request.urlopen(url, timeout=300) as response:
                     while True:
                         chunk = response.read(1 << 20)
                         if not chunk:
