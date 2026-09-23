@@ -21,6 +21,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+MNLI_CLASS_NAMES = ["entailment", "neutral", "contradiction"]
+
 class MNLITask(Task):
     def __init__(
             self, device, rank, num_workers, weight_decay, model_name, data_split_method, train_eval_frac, lock, non_iid_alpha=None, seed=0
@@ -82,6 +84,10 @@ class MNLITask(Task):
         state = [b.data for b in self._model.buffers()]
         return parameters, state
 
+    @staticmethod
+    def _batch_size(batch) -> int:
+        return int(batch["input_ids"].shape[0])
+
     def loss(
             self,
             parameters: List[torch.Tensor],
@@ -91,7 +97,7 @@ class MNLITask(Task):
     ) -> Tuple[Loss, State]:
         with torch.no_grad():
             with fork_rng_with_seed(random_seed):
-                output, state = self.forward(
+                output, state = self._forward(
                     batch, parameters, state, is_training=True
                 )
         loss = self._criterion(
@@ -126,12 +132,14 @@ class MNLITask(Task):
         """Average quality on the batch"""
         with torch.no_grad():
             output, _ = self._forward(batch, parameters, state, is_training=False)
-        loss = self._criterion(
-            output.logits[:, :-1, :].flatten(0, -2),
-            batch['input_ids'][:, 1:].flatten(),
-        )
-        accuracy = loss
-        return {"loss": loss.item(), "accuracy": accuracy.item()}
+            loss = self._criterion(
+                output.logits[:, :-1, :].flatten(0, -2),
+                batch['input_ids'][:, 1:].flatten(),
+            )
+            loss_value = loss.item()
+            # Report perplexity in the accuracy field so log format stays unchanged.
+            perplexity = float(torch.exp(loss).item())
+        return {"loss": loss_value, "accuracy": perplexity}
 
     def evaluate(
             self,
@@ -144,12 +152,13 @@ class MNLITask(Task):
         count = 0
         for _, batch in dataset.iterator(batch_size=64, shuffle=False, repeat=False):
             quality = self.quality(parameters, state, batch)
+            batch_size = self._batch_size(batch)
             if mean_quality is None:
-                count = len(batch)
+                count = batch_size
                 mean_quality = quality
             else:
-                count += len(batch)
-                weight = float(len(batch)) / count
+                count += batch_size
+                weight = float(batch_size) / count
                 for key, value in mean_quality.items():
                     mean_quality[key] += weight * (quality[key] - mean_quality[key])
         return mean_quality
@@ -249,11 +258,13 @@ class MNLIDataset(PyTorchDataset):
         ]
 
     def prepare_batch(self, batch):
-        batch = self.tokenizer(batch['text'],
-                               truncation=True,
-                               padding=True,
-                               max_length=128,
-                               return_tensors='pt')
+        batch = self.tokenizer(
+            batch["text"],
+            truncation=True,
+            padding=True,
+            max_length=128,
+            return_tensors="pt",
+        )
         batch = {k: v.to(self._device) for k, v in batch.items()}
         return batch
 
@@ -262,10 +273,11 @@ class MNLIDataset(PyTorchDataset):
 def form_training_prompts(example):
     hypothesis = example["hypothesis"]
     premise = example["premise"]
-    class_label = ["entailment", "neutral", "contradiction"][example["label"]]
-    example[
-        "text"
-    ] = f"mnli hypothesis: {hypothesis} premise: {premise} target: {class_label}<|endoftext|>"
+    class_label = MNLI_CLASS_NAMES[example["label"]]
+    example["text"] = (
+        f"mnli hypothesis: {hypothesis} premise: {premise} "
+        f"target: {class_label}<|endoftext|>"
+    )
     genre_dict = {"government": 0, "fiction": 1, "travel": 2, "slate": 3, "telephone": 4, "letters": 5,
                   "verbatim": 6,
                   "facetoface": 7, "oup": 8, "nineeleven": 9, }
