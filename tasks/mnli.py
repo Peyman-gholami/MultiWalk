@@ -1,13 +1,8 @@
 import os
-import contextlib
-import itertools
-import re
-from typing import Iterable, List, Tuple
+import fcntl
+from typing import List, Tuple
 import torch
-from torch.random import fork_rng
-import torchvision
 import numpy as np
-from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset, random_split
 from .utils.non_iid_dirichlet import distribute_data_dirichlet
 
@@ -44,6 +39,7 @@ class MNLITask(Task):
         logging.info("MNLI weight_decay creatd!")
         self.data = MNLIDataset("train", lock, self.tokenizer, device=self._device)
         logging.info("dataset creatd!")
+        print(f"[MNLI rank={rank}] train dataset ready, size={len(self.data)}", flush=True)
         self.max_batch_size = self.data.max_batch_size
         if rank > -1:
             if num_workers > 1:
@@ -66,6 +62,7 @@ class MNLITask(Task):
                 print(
                     f"Splitting data using {data_split_method} according to",
                     [len(split) for split in splits],
+                    flush=True,
                 )
                 self.data = splits[rank]
             else:
@@ -75,7 +72,13 @@ class MNLITask(Task):
                 fractions=[train_eval_frac, 1-train_eval_frac], seed=seed+85
             )
             self.data = splits[0]
-        self._test_data = MNLIDataset("validation_matched", lock, self.tokenizer, device=self._device)
+            print(f"[MNLI eval] train_eval size={len(self.data)}", flush=True)
+        # Only the eval process needs the validation set; clients skip this expensive map.
+        if rank < 0:
+            self._test_data = MNLIDataset("validation_matched", lock, self.tokenizer, device=self._device)
+            print(f"[MNLI eval] validation size={len(self._test_data)}", flush=True)
+        else:
+            self._test_data = None
 
     def initialize(self, seed) -> Tuple[Parameters]:
         with fork_rng_with_seed(seed):
@@ -163,6 +166,15 @@ class MNLITask(Task):
                     mean_quality[key] += weight * (quality[key] - mean_quality[key])
         return mean_quality
 
+    def recalibrate_state(
+            self,
+            dataset: Dataset,
+            parameters: List[torch.Tensor],
+            state: List[torch.Tensor],
+    ) -> List[torch.Tensor]:
+        """OPT has no BatchNorm-style buffers that need a data pass; return state as-is."""
+        return state
+
     def _forward(
             self,
             input,
@@ -213,16 +225,21 @@ class MNLIDataset(PyTorchDataset):
             self, split, lock, tokenizer, device="cuda"
     ):
         self.tokenizer = tokenizer
-        with lock:
-            dataset = load_dataset("multi_nli", split=split)
-
-        dataset = dataset.map(
-            form_training_prompts,
-            remove_columns=["promptID", "pairID", "premise_binary_parse", "premise_parse",
-                            "hypothesis_binary_parse", "hypothesis_parse", "hypothesis", "premise", "label"],
-            load_from_cache_file=False,
-            desc="Generating text prompts",
-        )
+        os.makedirs("./data", exist_ok=True)
+        # Serialize the expensive HF map across ranks so only one process builds the
+        # Arrow cache; others reuse it (load_from_cache_file=True).
+        flock_path = os.path.join("./data", f"mnli_{split}_map.lock")
+        with open(flock_path, "w") as flock_f:
+            fcntl.flock(flock_f, fcntl.LOCK_EX)
+            with lock:
+                dataset = load_dataset("multi_nli", split=split)
+            dataset = dataset.map(
+                form_training_prompts,
+                remove_columns=["promptID", "pairID", "premise_binary_parse", "premise_parse",
+                                "hypothesis_binary_parse", "hypothesis_parse", "hypothesis", "premise", "label"],
+                load_from_cache_file=True,
+                desc="Generating text prompts",
+            )
 
         super().__init__(dataset, device=device, prepare_batch=self.prepare_batch)
 
@@ -283,6 +300,3 @@ def form_training_prompts(example):
                   "facetoface": 7, "oup": 8, "nineeleven": 9, }
     example["genre"] = genre_dict[example["genre"]]
     return example
-
-
-
