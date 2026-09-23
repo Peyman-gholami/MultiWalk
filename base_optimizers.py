@@ -1,4 +1,5 @@
 from typing import Any, List, Mapping, NamedTuple
+import os
 import torch
 
 
@@ -80,23 +81,30 @@ class AdamState(NamedTuple):
     step: List[torch.Tensor]  # Updated to store tensors instead of integers
 
 
+def _adam_device() -> torch.device:
+    """Same GPU index the algorithms use: cuda:{LOCAL_RANK} from the launcher env."""
+    if not torch.cuda.is_available():
+        return torch.device("cpu")
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    return torch.device(f"cuda:{local_rank}")
+
+
 class Adam(BaseOptimizer):
     def init(self, parameters: List[torch.Tensor]) -> OptimizerState:
+        # Match algorithms' training_device = cuda:{local_rank}. Do not use bare
+        # "cuda" (always current/default device 0) or every rank's Adam lands on GPU 0.
+        adam_device = _adam_device()
         return AdamState(
-            # Initialize exp_avgs on the same device as parameters
             [
-                torch.zeros_like(p, memory_format=torch.preserve_format, device='cuda')
+                torch.zeros_like(p, memory_format=torch.preserve_format, device=adam_device)
                 for p in parameters
             ],
-            # Initialize exp_avg_sqs on the same device as parameters
             [
-                torch.zeros_like(p, memory_format=torch.preserve_format, device='cuda')
+                torch.zeros_like(p, memory_format=torch.preserve_format, device=adam_device)
                 for p in parameters
             ],
-            # Initialize max_exp_avg_sqs if required (empty list for now)
             [],
-            # Initialize step as tensors on the same device as parameters
-            [torch.tensor(0, dtype=torch.float32, device='cuda') for p in parameters],
+            [torch.tensor(0, dtype=torch.float32, device=adam_device) for p in parameters],
         )
 
     def step(
