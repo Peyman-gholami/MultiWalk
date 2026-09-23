@@ -37,10 +37,13 @@ def send_log_to_remote_server(log_file_path, remote_user, remote_address, remote
 
 def _format_log_value(value):
     if isinstance(value, list):
-        return "none" if not value else ",".join(map(str, value))
-    if isinstance(value, float):
-        return format(value, ".6g")
-    return str(value)
+        text = "none" if not value else ",".join(map(str, value))
+    elif isinstance(value, float):
+        text = format(value, ".6g")
+    else:
+        text = str(value)
+    # HuggingFace ids like facebook/opt-125m must not become nested paths.
+    return text.replace("/", "-").replace(os.sep, "-")
 
 
 def build_log_name(size, rank, num_rw, args, specific_keys):
