@@ -73,7 +73,12 @@ class SVHNTask(Task):
     ):
         self._device = device
 
-        self.data = SVHNDataset("train", lock, device=self._device)
+        # Training keeps RandomCrop; the eval process (rank == -1) loads train
+        # without augmentation so reported train accuracy matches the test protocol.
+        # CIFAR is unchanged and still evaluates train under augmentation.
+        self.data = SVHNDataset(
+            "train", lock, device=self._device, augment=(rank > -1)
+        )
         self.max_batch_size = self.data.max_batch_size
         if rank > -1:
             if num_workers > 1:
@@ -274,24 +279,20 @@ class SVHNDataset(PyTorchDataset):
     max_batch_size = 128
 
     def __init__(
-            self, split, lock, data_root='./data/', device="cuda"
+            self, split, lock, data_root='./data/', device="cuda", augment=True
     ):
-        if split == "train":
+        normalize = [
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize(self.data_mean, self.data_stddev),
+        ]
+        if split == "train" and augment:
             # No horizontal flip: digit symmetry (e.g. 6/9) makes it harmful on SVHN.
             transform = torchvision.transforms.Compose(
-                [
-                    torchvision.transforms.RandomCrop(32, padding=4),
-                    torchvision.transforms.ToTensor(),
-                    torchvision.transforms.Normalize(self.data_mean, self.data_stddev),
-                ]
+                [torchvision.transforms.RandomCrop(32, padding=4), *normalize]
             )
-        elif split == "test":
-            transform = torchvision.transforms.Compose(
-                [
-                    torchvision.transforms.ToTensor(),
-                    torchvision.transforms.Normalize(self.data_mean, self.data_stddev),
-                ]
-            )
+        elif split in ("train", "test"):
+            # Non-augmented train is used only for evaluation metrics.
+            transform = torchvision.transforms.Compose(normalize)
         else:
             raise ValueError(f"Unknown split '{split}'.")
 
