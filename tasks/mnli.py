@@ -20,7 +20,7 @@ MNLI_CLASS_NAMES = ["entailment", "neutral", "contradiction"]
 
 class MNLITask(Task):
     def __init__(
-            self, device, rank, num_workers, weight_decay, model_name, data_split_method, train_eval_frac, lock, non_iid_alpha=None, seed=0
+            self, device, rank, num_workers, weight_decay, model_name, data_split_method, train_eval_frac, lock, non_iid_alpha=None, seed=0, training_ranks=None
     ):
         logging.info("MNLI Begin")
         self._device = device
@@ -41,7 +41,9 @@ class MNLITask(Task):
         logging.info("dataset creatd!")
         print(f"[MNLI rank={rank}] train dataset ready, size={len(self.data)}", flush=True)
         self.max_batch_size = self.data.max_batch_size
-        if rank > -1:
+        training_ranks = range(num_workers) if training_ranks is None else training_ranks
+        num_workers = len(training_ranks)
+        if rank in training_ranks:
             if num_workers > 1:
                 # Splitting data by worker
                 if data_split_method == "dirichlet":
@@ -64,15 +66,17 @@ class MNLITask(Task):
                     [len(split) for split in splits],
                     flush=True,
                 )
-                self.data = splits[rank]
+                self.data = dict(zip(training_ranks, splits))[rank]
             else:
                 self.mean_num_data_per_worker = len(self.data)
-        else:
+        elif rank < 0:
             splits = self.data.random_split(
                 fractions=[train_eval_frac, 1-train_eval_frac], seed=seed+85
             )
             self.data = splits[0]
             print(f"[MNLI eval] train_eval size={len(self.data)}", flush=True)
+        else:
+            self.mean_num_data_per_worker = len(self.data)
         # Only the eval process needs the validation set; clients skip this expensive map.
         if rank < 0:
             self._test_data = MNLIDataset("validation_matched", lock, self.tokenizer, device=self._device)
@@ -270,7 +274,7 @@ class MNLIDataset(PyTorchDataset):
             )
 
         return [
-            PyTorchDataset(Subset(self._set, indices), self._device, prepare_batch=self.prepare_batch)
+            PyTorchDataset(Subset(self._set, list(map(int, indices))), self._device, prepare_batch=self.prepare_batch)
             for indices in indices_per_worker
         ]
 

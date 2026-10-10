@@ -140,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument('--fedprox_param', type=float, default=0.0, help='FedProx proximal parameter (mu)')
     parser.add_argument('--fedau_k', type=int, default=50, help='FedAU interval cap K for aggregation weights')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
-    parser.add_argument('--task', type=str, choices=['Cifar', 'Cifar100', 'SVHN', 'MNLI'], default="Cifar", help='Task name')
+    parser.add_argument('--task', type=str, choices=['Cifar', 'Cifar100', 'SVHN', 'MNLI', 'Dolly'], default="Cifar", help='Task name')
     parser.add_argument('--model_name', type=str, default="ResNet20",
                         help='Model name (e.g. ResNet20, ResNet56 for CIFAR-100, SimpleCNN for CIFAR-10/SVHN)')
     parser.add_argument('--data_split_method', type=str, choices=['random', 'dirichlet'], default="dirichlet", help='Data split method')
@@ -200,7 +200,7 @@ if __name__ == "__main__":
         "weight_decay": args.weight_decay
     }
 
-    if args.task == 'MNLI' or ('opt' in args.model_name.lower()):
+    if args.task in ('MNLI', 'Dolly') or ('opt' in args.model_name.lower()):
         set_start_method('spawn', force=True)
 
 

@@ -63,6 +63,11 @@ class DecentralizedTraining:
         logging.info(f"[{group_name}] Rank {rank} initialized with backend {backend} on port {port}")
 
     def configure_task(self, rank, device) -> Task:
+        # Only server/client algorithms reserve rank 0 for aggregation.
+        server_only_rank_zero = self.algorithm in (
+            'fedavg', 'fedawe', 'fedau', 'fedprox', 'mifa',
+            'scaffold', 'huscaffold', 'hscaffold', 'sgfocus')
+        training_ranks = range(1 if server_only_rank_zero else 0, self.size)
         if self.config["task"] == "Cifar":
             from tasks.cifar import CifarTask
 
@@ -70,6 +75,7 @@ class DecentralizedTraining:
                 rank=rank,
                 device=device,
                 num_workers=self.size,
+                training_ranks=training_ranks,
                 weight_decay=self.config["weight_decay"],
                 model_name=self.config["model_name"],
                 data_split_method=self.config["data_split_method"],
@@ -85,6 +91,7 @@ class DecentralizedTraining:
                 rank=rank,
                 device=device,
                 num_workers=self.size,
+                training_ranks=training_ranks,
                 weight_decay=self.config["weight_decay"],
                 model_name=self.config["model_name"],
                 data_split_method=self.config["data_split_method"],
@@ -100,6 +107,23 @@ class DecentralizedTraining:
                 rank=rank,
                 device=device,
                 num_workers=self.size,
+                training_ranks=training_ranks,
+                weight_decay=self.config["weight_decay"],
+                model_name=self.config["model_name"],
+                data_split_method=self.config["data_split_method"],
+                train_eval_frac=self.train_eval_frac,
+                lock=self.lock,
+                non_iid_alpha=self.config["non_iid_alpha"],
+                seed=self.config["seed"] + 100
+            )
+        if self.config["task"] == "Dolly":
+            from tasks.dolly import DollyTask
+
+            return DollyTask(
+                rank=rank,
+                device=device,
+                num_workers=self.size,
+                training_ranks=training_ranks,
                 weight_decay=self.config["weight_decay"],
                 model_name=self.config["model_name"],
                 data_split_method=self.config["data_split_method"],
@@ -115,6 +139,7 @@ class DecentralizedTraining:
                 rank=rank,
                 device=device,
                 num_workers=self.size,
+                training_ranks=training_ranks,
                 weight_decay=self.config["weight_decay"],
                 model_name=self.config["model_name"],
                 data_split_method=self.config["data_split_method"],
@@ -146,6 +171,11 @@ class DecentralizedTraining:
                 raise ValueError(f"SimpleCNN is not supported for task '{self.config['task']}'")
             with fork_rng_with_seed(self.config["seed"]):
                 model = SimpleCNN(dataset=dataset)
+        elif self.config["task"] == "Dolly":
+            from tasks.models.llama import Llama
+
+            with fork_rng_with_seed(self.config["seed"]):
+                model = Llama(self.config["model_name"])
         elif "opt" in self.config["model_name"]:
             from tasks.models.llm import LLM
 

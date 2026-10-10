@@ -60,13 +60,15 @@ def ensure_cifar100_data(data_root: str = "./data/") -> None:
 
 class Cifar100Task(Task):
     def __init__(
-            self, device, rank, num_workers, weight_decay, model_name, data_split_method, train_eval_frac, lock, non_iid_alpha=None, seed=0
+            self, device, rank, num_workers, weight_decay, model_name, data_split_method, train_eval_frac, lock, non_iid_alpha=None, seed=0, training_ranks=None
     ):
         self._device = device
 
         self.data = Cifar100Dataset("train", lock, device=self._device)
         self.max_batch_size = self.data.max_batch_size
-        if rank > -1:
+        training_ranks = range(num_workers) if training_ranks is None else training_ranks
+        num_workers = len(training_ranks)
+        if rank in training_ranks:
             if num_workers > 1:
                 # Splitting data by worker
                 if data_split_method == "dirichlet":
@@ -88,14 +90,16 @@ class Cifar100Task(Task):
                     f"Splitting data using {data_split_method} according to",
                     [len(split) for split in splits],
                 )
-                self.data = splits[rank]
+                self.data = dict(zip(training_ranks, splits))[rank]
             else:
                 self.mean_num_data_per_worker = len(self.data)
-        else:
+        elif rank < 0:
             splits = self.data.random_split(
                 fractions=[train_eval_frac, 1-train_eval_frac], seed=seed+85
             )
             self.data = splits[0]
+        else:
+            self.mean_num_data_per_worker = len(self.data)
         self._test_data = Cifar100Dataset("test", lock, device=self._device)
 
         self._model_name = model_name

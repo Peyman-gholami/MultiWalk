@@ -1,4 +1,8 @@
-transformers<4.42.0
-datasets
-accelerate
+transformers==4.47.1
+datasets==3.2.0
+accelerate==1.2.1
+peft==0.14.0
+numpy<2
+pyarrow==18.1.0
+pandas==2.2.3
 bitsandbytes>=0.39.0
