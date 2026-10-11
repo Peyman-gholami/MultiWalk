@@ -167,7 +167,7 @@ def select_participating_clients(
     # If a list is given, use the mean as the target fraction.
     if pattern == "uniform":
         highs = _as_client_values(high, total_clients, "participation_rate")
-        fraction = sum(highs) / max(1, len(highs))
+        fraction = math.fsum(highs) / max(1, len(highs))
         num_participants = max(1, int(fraction * total_clients)) if ensure_at_least_one else int(fraction * total_clients)
         num_participants = min(total_clients, max(0, num_participants))
         if num_participants == 0:
