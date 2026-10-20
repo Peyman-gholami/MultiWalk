@@ -19,7 +19,7 @@ TASKS = [
 ]
 SERVER_ALGORITHMS = [
     'fedavg', 'fedawe', 'fedau', 'fedprox', 'mifa',
-    'scaffold', 'huscaffold', 'hscaffold', 'sgfocus',
+    'scaffold', 'huscaffold', 'hscaffold', 'sgfocus', 'fedsum_cr',
 ]
 PEER_ALGORITHMS = ['random_walk', 'split_random_walk', 'async_gossip', 'async_gossip_general']
 

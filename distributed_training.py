@@ -12,6 +12,7 @@ from algorithms import (
     FedAWE,
     FedAVG,
     FedProx,
+    FedSUMCR,
     HScaffold,
     HUScaffold,
     MIFA,
@@ -66,7 +67,7 @@ class DecentralizedTraining:
         # Only server/client algorithms reserve rank 0 for aggregation.
         server_only_rank_zero = self.algorithm in (
             'fedavg', 'fedawe', 'fedau', 'fedprox', 'mifa',
-            'scaffold', 'huscaffold', 'hscaffold', 'sgfocus')
+            'scaffold', 'huscaffold', 'hscaffold', 'sgfocus', 'fedsum_cr')
         training_ranks = range(1 if server_only_rank_zero else 0, self.size)
         if self.config["task"] == "Cifar":
             from tasks.cifar import CifarTask
@@ -285,6 +286,9 @@ class DecentralizedTraining:
         elif self.algorithm == 'fedau':
             fedau = FedAU(self)
             fedau.run(rank)
+        elif self.algorithm == 'fedsum_cr':
+            fedsum_cr = FedSUMCR(self)
+            fedsum_cr.run(rank)
         elif self.algorithm == 'fedprox':
             fedprox = FedProx(self)
             fedprox.run(rank)

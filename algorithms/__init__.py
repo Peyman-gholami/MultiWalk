@@ -3,6 +3,7 @@ from .fedau import FedAU
 from .fedawe import FedAWE
 from .fedavg import FedAVG
 from .fedprox import FedProx
+from .fedsum_cr import FedSUMCR
 from .mifa import MIFA
 from .random_walk import RandomWalk
 from .scaffold import Scaffold, HUScaffold, HScaffold
@@ -15,6 +16,7 @@ __all__ = [
     "FedAWE",
     "FedAVG",
     "FedProx",
+    "FedSUMCR",
     "HScaffold",
     "HUScaffold",
     "MIFA",
