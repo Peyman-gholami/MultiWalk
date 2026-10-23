@@ -17,6 +17,7 @@ SVHN_SPLITS = {
         "md5": "e26dedcc434d2e4c54c9b2d4a06d8373",
         "urls": (
             "http://ufldl.stanford.edu/housenumbers/train_32x32.mat",
+            "https://huggingface.co/datasets/darcook/DCPV-Artifacts/resolve/main/data/svhn/train_32x32.mat",
         ),
     },
     "test": {
@@ -24,6 +25,7 @@ SVHN_SPLITS = {
         "md5": "eb5a983be6a315427106f1b164d9cef3",
         "urls": (
             "http://ufldl.stanford.edu/housenumbers/test_32x32.mat",
+            "https://huggingface.co/datasets/darcook/DCPV-Artifacts/resolve/main/data/svhn/test_32x32.mat",
         ),
     },
 }
