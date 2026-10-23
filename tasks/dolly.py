@@ -158,9 +158,10 @@ class DollyDataset(_DollyBatches):
 
     def prepare_batch(self, batch):
         input_ids, labels = [], []
+        # 1 BOS + 127 prompt + 127 response + 1 EOS = at most 256 tokens.
         for prompt, response in zip(batch['text'], batch['response']):
-            prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)[-255:]
-            response_ids = self.tokenizer.encode(response, add_special_tokens=False)[:255] + [self.tokenizer.eos_token_id]
+            prompt_ids = self.tokenizer.encode(prompt, add_special_tokens=False)[-127:]
+            response_ids = self.tokenizer.encode(response, add_special_tokens=False)[:127] + [self.tokenizer.eos_token_id]
             input_ids.append([self.tokenizer.bos_token_id] + prompt_ids + response_ids)
             labels.append([-100] * (1 + len(prompt_ids)) + response_ids)
         length = max(map(len, input_ids))
