@@ -19,9 +19,8 @@ spec.loader.exec_module(partitioner)
 
 
 class DirichletPartitioningTests(unittest.TestCase):
-    def test_default_samples_all_clients_together(self):
-        # A balanced draw succeeds immediately. Record its dimension to detect
-        # leftover groups (e.g. 10+1) independently of random label counts.
+    def test_default_samples_in_groups_of_ten(self):
+        # Record draw dimensions to check both full groups and leftover groups.
         targets = np.tile(np.arange(10), 100)
         for clients in [10, 11, 25, 50, 75, 100]:
             with self.subTest(clients=clients):
@@ -40,16 +39,19 @@ class DirichletPartitioningTests(unittest.TestCase):
                     parts = partitioner.distribute_data_dirichlet(targets, .01, clients)
                 self.assertEqual(len(parts), clients)
                 self.assertTrue(dimensions)
-                self.assertEqual(set(dimensions), {clients})
+                expected = {min(10, clients)}
+                if clients % 10:
+                    expected.add(clients % 10)
+                self.assertEqual(set(dimensions), expected)
                 np.testing.assert_array_equal(np.sort(np.concatenate(parts)), np.arange(len(targets)))
 
-    def test_default_matches_explicit_full_group(self):
+    def test_default_matches_explicit_groups_of_ten(self):
         targets = np.tile(np.arange(10), 100)
         for clients in [10, 11]:
             with self.subTest(clients=clients):
                 implicit = partitioner.distribute_data_dirichlet(targets, .1, clients, seed=142)
                 explicit = partitioner.distribute_data_dirichlet(
-                    targets, .1, clients, seed=142, num_auxiliary_workers=clients)
+                    targets, .1, clients, seed=142, num_auxiliary_workers=10)
                 self.assertEqual(implicit, explicit)
 
     def test_impossible_minimum_does_not_loop_forever(self):

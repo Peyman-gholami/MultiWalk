@@ -265,7 +265,7 @@ class MNLIDataset(PyTorchDataset):
             distribute_evenly: bool = True,
     ) -> List[Dataset]:
         indices_per_worker = distribute_data_dirichlet(
-            self._set['genre'], alpha, num_workers, num_auxiliary_workers=num_workers, seed=seed
+            self._set['genre'], alpha, num_workers, num_auxiliary_workers=10, seed=seed
         )
 
         if distribute_evenly:

@@ -4,14 +4,12 @@ import numpy as np
 
 #%%
 def distribute_data_dirichlet(
-    targets, non_iid_alpha, n_workers, seed=0, num_auxiliary_workers=None
+    targets, non_iid_alpha, n_workers, seed=0, num_auxiliary_workers=10
 ):
-    """Sample all partitions together by default; explicit groups reproduce old splits.
+    """Sample partitions in groups of up to 10 by default.
 
     Code adapted from Tao Lin (partition_data.py).
     """
-    if num_auxiliary_workers is None:
-        num_auxiliary_workers = n_workers
     random_state = np.random.RandomState(seed=seed)
 
     num_indices = len(targets)
