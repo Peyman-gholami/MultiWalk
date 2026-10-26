@@ -4,9 +4,14 @@ import numpy as np
 
 #%%
 def distribute_data_dirichlet(
-    targets, non_iid_alpha, n_workers, seed=0, num_auxiliary_workers=10
+    targets, non_iid_alpha, n_workers, seed=0, num_auxiliary_workers=None
 ):
-    """Code adapted from Tao Lin (partition_data.py)"""
+    """Sample all partitions together by default; explicit groups reproduce old splits.
+
+    Code adapted from Tao Lin (partition_data.py).
+    """
+    if num_auxiliary_workers is None:
+        num_auxiliary_workers = n_workers
     random_state = np.random.RandomState(seed=seed)
 
     num_indices = len(targets)
@@ -46,8 +51,10 @@ def distribute_data_dirichlet(
         n_workers = n_workers - num_auxiliary_workers
 
         # get the corresponding idx_batch.
+        # With many clients and a small alpha, the minimum-size target may be
+        # unreachable in practice. Bound retries; task wrappers rebalance sizes.
         min_size = 0
-        while min_size < int(0.50 * _targets_size / _n_workers):
+        for _ in range(1000):
             _idx_batch = [[] for _ in range(_n_workers)]
             for _class in range(num_classes):
                 # get the corresponding indices in the original 'targets' list.
@@ -80,5 +87,7 @@ def distribute_data_dirichlet(
                     min_size = min([_size for _size in sizes])
                 except ZeroDivisionError:
                     pass
+            if min_size >= int(0.50 * _targets_size / _n_workers):
+                break
         idx_batch += _idx_batch
     return idx_batch

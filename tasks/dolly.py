@@ -150,7 +150,7 @@ class DollyDataset(_DollyBatches):
 
     def dirichlet_split(self, num_workers, alpha=1, seed=0, distribute_evenly=True):
         indices_per_worker = distribute_data_dirichlet(
-            self._set['category'], alpha, num_workers, num_auxiliary_workers=10, seed=seed)
+            self._set['category'], alpha, num_workers, num_auxiliary_workers=num_workers, seed=seed)
         if distribute_evenly:
             indices_per_worker = np.array_split(np.concatenate(indices_per_worker), num_workers)
         return [_DollyBatches(Subset(self._set, list(map(int, indices))), self._device,
